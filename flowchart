@@ -1,0 +1,55 @@
+**Student Flow:**
+```mermaid
+flowchart TD
+    A(["Student opens app"]) --> B["Login — JWT auth"]
+    B --> C{"Authenticated?"}
+    C -->|"No"| B
+    C -->|"Yes"| D["GPS captured\nlat, lng, timestamp"]
+    D --> E{"Checked in today?"}
+    E -->|"No"| F["Tap check-in"]
+    F --> G["POST /v1/check-in"]
+    G --> H{"Timestamp valid?\n< 30s old"}
+    H -->|"Stale"| I["403: stale request"]
+    H -->|"Valid"| J{"Geofence check\nHaversine ≤ 100m"}
+    J -->|"Outside"| K["403: outside zone"]
+    J -->|"Inside"| L["Log check-in time\nPostgreSQL + Redis"]
+    L --> M["Show live map + timer"]
+    E -->|"Yes"| N["Tap check-out"]
+    N --> O{"Geofence check\nMust be inside zone"}
+    O -->|"Outside"| P["403: outside zone"]
+    O -->|"Inside"| Q["Compute duration\ncheck_out − check_in"]
+    Q --> R{"Duration ≥ 6 hours?"}
+    R -->|"Yes"| S["PRESENT\nWrite to PostgreSQL"]
+    R -->|"No"| T["ABSENT\nWrite to PostgreSQL"]
+    S --> U["Push notification sent\nHistory updated"]
+    T --> U
+```
+
+**Admin Flow:**
+```mermaid
+flowchart TD
+    A(["Admin opens dashboard"]) --> B["Login — JWT + RBAC"]
+    B --> C{"Admin role verified?"}
+    C -->|"Denied"| D["403: access denied"]
+    C -->|"Approved"| E["Admin dashboard home"]
+    E --> F["Manage premises"]
+    E --> G["View attendance"]
+    E --> H["Reports and analytics"]
+    F --> F1["Add or edit premise\nSet lat, lng, radius"]
+    F1 --> F2{"Validate radius\nConfigurable per site"}
+    F2 --> F3["Save to PostgreSQL"]
+    F3 --> F4["Bust Redis cache"]
+    G --> G1["Filter by student\nor class or date"]
+    G1 --> G2["Real-time updates\nWebSocket / SSE"]
+    G2 --> G3{"Anomaly flagged?\nFraud worker output"}
+    G3 -->|"Yes"| G4["Review risk flag\nOverride or confirm"]
+    G3 -->|"No"| G5["Attendance confirmed"]
+    H --> H1["Attendance rate\nAbsentees, late arrivals"]
+    H1 --> H2["CSV export\nBy student, class, date"]
+    H2 --> H3["Audit log\nFull status history"]
+    H3 --> H4["Read replica query\nOffloads primary DB"]
+    F4 --> Z["All changes written\nto audit log"]
+    G4 --> Z
+    G5 --> Z
+    H4 --> Z
+```
