@@ -1,0 +1,240 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────
+
+enum Role {
+  STUDENT
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  PENDING
+}
+
+enum PunctualityStatus {
+  ON_TIME
+  LATE
+}
+
+enum FraudRiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ReportJobStatus {
+  PROCESSING
+  DONE
+  FAILED
+}
+
+// ─── User ────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(STUDENT)
+  status       UserStatus @default(ACTIVE)
+  deviceId     String?
+  fcmToken     String?   // for push notifications
+  studentCode  String?   @unique // roll number / student ID
+  deletedAt    DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  attendanceLogs AttendanceLog[]
+  sessions       Session[]
+  fraudLogs      FraudLog[]
+  notifications  Notification[]
+  reportJobs     ReportJob[]
+  idempotencyRecords IdempotencyRecord[]
+
+  @@index([email])
+}
+
+// ──Location (geofence config) ───────────────────────────
+
+model Location {
+  id           String   @id @default(uuid())
+  name         String
+  latitude     Float
+  longitude    Float
+  radiusMeters Float    @default(100)
+  deletedAt    DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  attendanceLogs AttendanceLog[]
+  workingHours   WorkingHours?
+  dailyStats     DailyStats[]
+}
+
+// ─── Working Hours / Late Threshold ──────────────────────
+
+model WorkingHours {
+  id                String   @id @default(uuid())
+  locationId         String   @unique
+  startTime         String
+  endTime           String
+  lateThresholdMins Int      @default(15)
+  minDurationHours  Float    @default(6)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  location Location @relation(fields: [locationId], references: [id])
+}
+
+// ─── Attendance Log ───────────────────────────────────────
+
+model AttendanceLog {
+  id            String             @id @default(uuid())
+  studentId     String
+  locationId     String
+  date          DateTime           @db.Date
+   // Check-in details
+   checkInTime        DateTime?
+   checkInLat         Float?
+   checkInLng         Float?
+   checkInDistanceM   Float?    // Distance from location center at check-in (meters)
+  checkInAccuracyM   Float?
+
+   // Check-out details
+   checkOutTime       DateTime?
+   checkOutLat        Float?
+   checkOutLng        Float?
+   checkOutDistanceM  Float?    // Distance from location center at check-out (meters)
+  checkOutAccuracyM  Float?
+  durationHours Float?
+  status        AttendanceStatus   @default(PENDING)
+  punctuality   PunctualityStatus?
+  isAutoClosed  Boolean            @default(false)
+  deletedAt     DateTime?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  student User    @relation(fields: [studentId], references: [id])
+  location Location @relation(fields: [locationId], references: [id])
+
+  @@unique([studentId, date])
+  @@index([studentId, date])
+  @@index([status])
+}
+
+// ─── Session (refresh tokens) ────────────────────────────
+
+model Session {
+  id           String   @id @default(uuid())
+  userId       String
+  refreshToken String   @unique
+  deviceId     String?
+  ipAddress    String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ─── Fraud Log ────────────────────────────────────────────
+
+model FraudLog {
+  id        String         @id @default(uuid())
+  studentId String
+  type      String
+  riskLevel FraudRiskLevel @default(LOW)
+  details   Json?
+  createdAt DateTime       @default(now())
+
+  student User @relation(fields: [studentId], references: [id])
+
+  @@index([studentId])
+  @@index([riskLevel])
+  @@index([createdAt])
+}
+
+// ─── Notification ─────────────────────────────────────────
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String   // e.g. "LATE_ALERT", "ABSENT_ALERT"
+  title     String
+  body      String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ─── Idempotency Record ──────────────────────────────────
+
+model IdempotencyRecord {
+  id           String   @id @default(uuid())
+  key          String
+  userId       String
+  endpoint     String
+  requestHash  String
+  responseData Json?
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([key, userId])
+  @@index([createdAt])
+}
+
+// ─── Daily Stats (aggregated analytics) ──────────────────
+
+model DailyStats {
+  id        String   @id @default(uuid())
+  date      DateTime @db.Date
+  locationId String
+  present   Int      @default(0)
+  absent    Int      @default(0)
+  late      Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  location Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([date, locationId])
+}
+
+// ─── Report Jobs (async export tracking) ─────────────────
+
+model ReportJob {
+  id          String          @id @default(uuid())
+  status      ReportJobStatus @default(PROCESSING)
+  format      String
+  filters     Json?
+  fileUrl     String?
+  createdById String
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  createdBy User @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([createdById])
+  @@index([status])
+  @@index([createdAt])
+}

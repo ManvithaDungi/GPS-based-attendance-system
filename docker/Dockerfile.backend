@@ -1,0 +1,55 @@
+# Multi-stage build: builder stage
+FROM node:20-bullseye AS builder
+
+WORKDIR /build
+
+# Copy package files
+COPY apps/backend/package*.json ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy source code
+COPY apps/backend/src ./src
+COPY apps/backend/tsconfig.json ./
+
+# Generate Prisma client
+COPY apps/backend/prisma ./prisma
+RUN npx prisma generate
+
+# Build TypeScript
+RUN npm run build
+
+# Final stage: runtime
+FROM node:20-bullseye-slim
+
+WORKDIR /app
+
+# Install dumb-init for proper signal handling
+RUN apt-get update && apt-get install -y --no-install-recommends dumb-init && rm -rf /var/lib/apt/lists/*
+
+# Copy package files from source
+COPY apps/backend/package*.json ./
+
+# Install production dependencies only
+RUN npm ci --only=production
+
+# Copy built application from builder
+COPY --from=builder /build/dist ./dist
+COPY --from=builder /build/prisma ./prisma
+COPY apps/backend/.env .env
+
+# Generate Prisma client
+RUN npx prisma generate
+
+# Expose port
+EXPOSE 3000
+
+# Health check
+# TODO: Add proper health check command
+
+# Use dumb-init to handle signals properly
+ENTRYPOINT ["dumb-init", "--"]
+
+# Start the application
+CMD ["node", "dist/server.js"]

@@ -2,8 +2,6 @@
 
 Comprehensive roadmap, architecture, and implementation plan for the GPS-based attendance platform.
 
-
-
 ## Product Goals
 
 - Allow check-in/check-out only inside a geofence (default: 100m radius).
