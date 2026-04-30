@@ -14,6 +14,11 @@ enum Role {
   ADMIN
 }
 
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
 enum AttendanceStatus {
   PRESENT
   ABSENT
@@ -32,6 +37,12 @@ enum FraudRiskLevel {
   HIGH
 }
 
+enum ReportJobStatus {
+  PROCESSING
+  DONE
+  FAILED
+}
+
 // ─── User ────────────────────────────────────────────────
 
 model User {
@@ -40,9 +51,11 @@ model User {
   email        String   @unique
   passwordHash String
   role         Role     @default(STUDENT)
+  status       UserStatus @default(ACTIVE)
   deviceId     String?
   fcmToken     String?   // for push notifications
   studentCode  String?   @unique // roll number / student ID
+  deletedAt    DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -50,30 +63,34 @@ model User {
   sessions       Session[]
   fraudLogs      FraudLog[]
   notifications  Notification[]
+  reportJobs     ReportJob[]
+  idempotencyRecords IdempotencyRecord[]
 
   @@index([email])
 }
 
-// ─── Premise (geofence config) ───────────────────────────
+// ──Location (geofence config) ───────────────────────────
 
-model Premise {
+model Location {
   id           String   @id @default(uuid())
   name         String
   latitude     Float
   longitude    Float
   radiusMeters Float    @default(100)
+  deletedAt    DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   attendanceLogs AttendanceLog[]
   workingHours   WorkingHours?
+  dailyStats     DailyStats[]
 }
 
 // ─── Working Hours / Late Threshold ──────────────────────
 
 model WorkingHours {
   id                String   @id @default(uuid())
-  premiseId         String   @unique
+  locationId         String   @unique
   startTime         String
   endTime           String
   lateThresholdMins Int      @default(15)
@@ -81,7 +98,7 @@ model WorkingHours {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  premise Premise @relation(fields: [premiseId], references: [id])
+  location Location @relation(fields: [locationId], references: [id])
 }
 
 // ─── Attendance Log ───────────────────────────────────────
@@ -89,28 +106,31 @@ model WorkingHours {
 model AttendanceLog {
   id            String             @id @default(uuid())
   studentId     String
-  premiseId     String
+  locationId     String
   date          DateTime           @db.Date
    // Check-in details
    checkInTime        DateTime?
    checkInLat         Float?
    checkInLng         Float?
-   checkInDistanceM   Float?    // Distance from premise center at check-in (meters)
+   checkInDistanceM   Float?    // Distance from location center at check-in (meters)
+  checkInAccuracyM   Float?
 
    // Check-out details
    checkOutTime       DateTime?
    checkOutLat        Float?
    checkOutLng        Float?
-   checkOutDistanceM  Float?    // Distance from premise center at check-out (meters)
+   checkOutDistanceM  Float?    // Distance from location center at check-out (meters)
+  checkOutAccuracyM  Float?
   durationHours Float?
   status        AttendanceStatus   @default(PENDING)
   punctuality   PunctualityStatus?
   isAutoClosed  Boolean            @default(false)
+  deletedAt     DateTime?
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
 
   student User    @relation(fields: [studentId], references: [id])
-  premise Premise @relation(fields: [premiseId], references: [id])
+  location Location @relation(fields: [locationId], references: [id])
 
   @@unique([studentId, date])
   @@index([studentId, date])
@@ -164,4 +184,57 @@ model Notification {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// ─── Idempotency Record ──────────────────────────────────
+
+model IdempotencyRecord {
+  id           String   @id @default(uuid())
+  key          String
+  userId       String
+  endpoint     String
+  requestHash  String
+  responseData Json?
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([key, userId])
+  @@index([createdAt])
+}
+
+// ─── Daily Stats (aggregated analytics) ──────────────────
+
+model DailyStats {
+  id        String   @id @default(uuid())
+  date      DateTime @db.Date
+  locationId String
+  present   Int      @default(0)
+  absent    Int      @default(0)
+  late      Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  location Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([date, locationId])
+}
+
+// ─── Report Jobs (async export tracking) ─────────────────
+
+model ReportJob {
+  id          String          @id @default(uuid())
+  status      ReportJobStatus @default(PROCESSING)
+  format      String
+  filters     Json?
+  fileUrl     String?
+  createdById String
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  createdBy User @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([createdById])
+  @@index([status])
+  @@index([createdAt])
 }
