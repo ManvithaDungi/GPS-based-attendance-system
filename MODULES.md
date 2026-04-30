@@ -22,13 +22,13 @@
 ### 3. Attendance Management
 - Check-in / Check-out system
 - Duration tracking
-- Status classification (Present, Absent, Late, On Leave)
+- Status classification (Present, Absent, Late)
 - Daily record enforcement
 
 ---
 
 ### 4. Admin Dashboard & Analytics
-- Real-time metrics (present, absent, late, on leave)
+- Real-time metrics (present, absent, late)
 - Daily / Monthly / Yearly reports
 - Student-wise attendance tracking
 - Data visualization
@@ -55,7 +55,6 @@
 ### 7. Notifications System
 - Late alerts
 - Absence alerts
-- Leave approval notifications
 
 ---
 
@@ -152,7 +151,6 @@
 ### Notifications
 - [ ] Push notifications (Firebase)
 - [ ] Alerts for late/absent
-- [ ] Leave approval notifications
 
 ---
 

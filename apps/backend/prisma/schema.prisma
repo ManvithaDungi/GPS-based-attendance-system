@@ -1,0 +1,167 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────
+
+enum Role {
+  STUDENT
+  ADMIN
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  PENDING
+}
+
+enum PunctualityStatus {
+  ON_TIME
+  LATE
+}
+
+enum FraudRiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+// ─── User ────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(STUDENT)
+  deviceId     String?
+  fcmToken     String?   // for push notifications
+  studentCode  String?   @unique // roll number / student ID
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  attendanceLogs AttendanceLog[]
+  sessions       Session[]
+  fraudLogs      FraudLog[]
+  notifications  Notification[]
+
+  @@index([email])
+}
+
+// ─── Premise (geofence config) ───────────────────────────
+
+model Premise {
+  id           String   @id @default(uuid())
+  name         String
+  latitude     Float
+  longitude    Float
+  radiusMeters Float    @default(100)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  attendanceLogs AttendanceLog[]
+  workingHours   WorkingHours?
+}
+
+// ─── Working Hours / Late Threshold ──────────────────────
+
+model WorkingHours {
+  id                String   @id @default(uuid())
+  premiseId         String   @unique
+  startTime         String
+  endTime           String
+  lateThresholdMins Int      @default(15)
+  minDurationHours  Float    @default(6)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  premise Premise @relation(fields: [premiseId], references: [id])
+}
+
+// ─── Attendance Log ───────────────────────────────────────
+
+model AttendanceLog {
+  id            String             @id @default(uuid())
+  studentId     String
+  premiseId     String
+  date          DateTime           @db.Date
+   // Check-in details
+   checkInTime        DateTime?
+   checkInLat         Float?
+   checkInLng         Float?
+   checkInDistanceM   Float?    // Distance from premise center at check-in (meters)
+
+   // Check-out details
+   checkOutTime       DateTime?
+   checkOutLat        Float?
+   checkOutLng        Float?
+   checkOutDistanceM  Float?    // Distance from premise center at check-out (meters)
+  durationHours Float?
+  status        AttendanceStatus   @default(PENDING)
+  punctuality   PunctualityStatus?
+  isAutoClosed  Boolean            @default(false)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  student User    @relation(fields: [studentId], references: [id])
+  premise Premise @relation(fields: [premiseId], references: [id])
+
+  @@unique([studentId, date])
+  @@index([studentId, date])
+  @@index([status])
+}
+
+// ─── Session (refresh tokens) ────────────────────────────
+
+model Session {
+  id           String   @id @default(uuid())
+  userId       String
+  refreshToken String   @unique
+  deviceId     String?
+  ipAddress    String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ─── Fraud Log ────────────────────────────────────────────
+
+model FraudLog {
+  id        String         @id @default(uuid())
+  studentId String
+  type      String
+  riskLevel FraudRiskLevel @default(LOW)
+  details   Json?
+  createdAt DateTime       @default(now())
+
+  student User @relation(fields: [studentId], references: [id])
+
+  @@index([studentId])
+  @@index([riskLevel])
+  @@index([createdAt])
+}
+
+// ─── Notification ─────────────────────────────────────────
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String   // e.g. "LATE_ALERT", "ABSENT_ALERT"
+  title     String
+  body      String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
