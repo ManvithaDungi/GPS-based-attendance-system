@@ -25,11 +25,11 @@ afterAll(async () => {
 
 describe('Fraud Log APIs', () => {
   describe('GET /api/v1/fraud', () => {
-    it('should retrieve fraud logs as admin', async () => {
+    it('should return 404 because the fraud route group is not mounted', async () => {
       const res = await request(app)
         .get('/api/v1/fraud')
         .set('Authorization', `Bearer ${adminToken}`);
-      expect([200, 404, 501]).toContain(res.status);
+      expect(res.status).toBe(404);
     });
   });
 });

@@ -9,7 +9,7 @@ const server = app.listen(PORT, () => {
   console.log(`[Env] NODE_ENV=${process.env.NODE_ENV}`);
 });
 
-// TODO: Handle graceful shutdown
+
 // TODO: Close database connections on exit
 // TODO: Properly handle signals (SIGTERM, SIGINT)
 

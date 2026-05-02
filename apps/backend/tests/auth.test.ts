@@ -1,6 +1,8 @@
 import request from 'supertest';
 import app from '../src/app';
 import { prisma } from '../src/utils/prisma';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 
 let adminToken: string;
 let studentToken: string;
@@ -39,6 +41,10 @@ describe('Auth APIs', () => {
         role: 'STUDENT',
       });
       expect(res.status).toBe(403);
+      expect(res.body).toEqual({
+        error: 'FORBIDDEN',
+        message: 'Only ADMIN role can self-register. Students must be added by an admin.',
+      });
     });
 
     it('should fail on missing fields', async () => {
@@ -46,6 +52,20 @@ describe('Auth APIs', () => {
         email: 'invalid@example.com',
       });
       expect(res.status).toBe(400);
+      expect(res.body.error).toBe('Validation error');
+      expect(res.body.details).toBeInstanceOf(Array);
+    });
+
+    it('should fail with documented validation response for duplicate email', async () => {
+      const res = await request(app).post('/api/v1/auth/register').send({
+        name: 'Test Admin Duplicate',
+        email: 'testadmin@example.com',
+        password: 'password123',
+        role: 'ADMIN',
+      });
+
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({ error: 'Validation error', details: [] });
     });
   });
 
@@ -69,7 +89,66 @@ describe('Auth APIs', () => {
         password: 'wrongpassword',
         deviceId: 'device-admin',
       });
-      expect([401, 403]).toContain(res.status);
+      expect(res.status).toBe(401);
+      expect(res.body).toEqual({ error: 'UNAUTHORIZED', message: 'Invalid email or password' });
+    });
+
+    it('should fail with documented response for a suspended account', async () => {
+      const passwordHash = await bcrypt.hash('password123', 10);
+      await prisma.user.create({
+        data: {
+          name: 'Suspended User',
+          email: 'suspended@example.com',
+          passwordHash,
+          role: 'STUDENT',
+          status: 'SUSPENDED',
+        },
+      });
+
+      const res = await request(app).post('/api/v1/auth/login').send({
+        email: 'suspended@example.com',
+        password: 'password123',
+        deviceId: 'device-suspended',
+      });
+
+      expect(res.status).toBe(401);
+      expect(res.body).toEqual({
+        error: 'ACCOUNT_SUSPENDED',
+        message: 'Your account has been suspended. Contact admin for details.',
+      });
+    });
+
+    it('should delete previous sessions when a student logs in again', async () => {
+      const passwordHash = await bcrypt.hash('password123', 10);
+      const student = await prisma.user.create({
+        data: {
+          name: 'Session Student',
+          email: 'session-student@example.com',
+          passwordHash,
+          role: 'STUDENT',
+        },
+      });
+
+      await prisma.session.create({
+        data: {
+          userId: student.id,
+          refreshToken: 'old-refresh-token',
+          deviceId: 'old-device',
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        },
+      });
+
+      const res = await request(app).post('/api/v1/auth/login').send({
+        email: 'session-student@example.com',
+        password: 'password123',
+        deviceId: 'new-device',
+      });
+
+      const sessions = await prisma.session.findMany({ where: { userId: student.id } });
+
+      expect(res.status).toBe(200);
+      expect(sessions).toHaveLength(1);
+      expect(sessions[0].deviceId).toBe('new-device');
     });
   });
 
@@ -89,7 +168,8 @@ describe('Auth APIs', () => {
       const res = await request(app).post('/api/v1/auth/refresh').send({
         refreshToken: 'invalid_token',
       });
-     expect([401, 403]).toContain(res.status);
+      expect(res.status).toBe(401);
+      expect(res.body).toEqual({ error: 'UNAUTHORIZED', message: 'Invalid or expired refresh token' });
     });
   });
 
@@ -104,7 +184,75 @@ describe('Auth APIs', () => {
 
     it('should fail without token', async () => {
       const res = await request(app).get('/api/v1/auth/me');
-      expect([401, 403]).toContain(res.status);
+      expect(res.status).toBe(401);
+      expect(res.body).toEqual({ error: 'UNAUTHORIZED', message: 'No token provided' });
+    });
+
+    it('should fail with 403 for a tampered token', async () => {
+      const res = await request(app)
+        .get('/api/v1/auth/me')
+        .set('Authorization', 'Bearer invalid-token');
+
+      expect(res.status).toBe(403);
+      expect(res.body).toEqual({ error: 'FORBIDDEN', message: 'Invalid token' });
+    });
+
+    it('should fail with 401 for an expired token', async () => {
+      const token = jwt.sign(
+        { userId: '00000000-0000-0000-0000-000000000000', role: 'STUDENT' },
+        process.env.JWT_SECRET || 'your-secret-key',
+        { expiresIn: '-1s' }
+      );
+
+      const res = await request(app)
+        .get('/api/v1/auth/me')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(401);
+      expect(res.body).toEqual({ error: 'UNAUTHORIZED', message: 'Token expired' });
+    });
+
+    it('should fail with 401 for a token whose user no longer exists', async () => {
+      const token = jwt.sign(
+        { userId: '00000000-0000-0000-0000-000000000000', role: 'STUDENT' },
+        process.env.JWT_SECRET || 'your-secret-key',
+        { expiresIn: '15m' }
+      );
+
+      const res = await request(app)
+        .get('/api/v1/auth/me')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(401);
+      expect(res.body).toEqual({ error: 'UNAUTHORIZED', message: 'User not found' });
+    });
+
+    it('should fail with 401 for a suspended user token', async () => {
+      const passwordHash = await bcrypt.hash('password123', 10);
+      const suspended = await prisma.user.create({
+        data: {
+          name: 'Suspended Token User',
+          email: 'suspended-token@example.com',
+          passwordHash,
+          role: 'STUDENT',
+          status: 'SUSPENDED',
+        },
+      });
+      const token = jwt.sign(
+        { userId: suspended.id, role: 'STUDENT' },
+        process.env.JWT_SECRET || 'your-secret-key',
+        { expiresIn: '15m' }
+      );
+
+      const res = await request(app)
+        .get('/api/v1/auth/me')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(401);
+      expect(res.body).toEqual({
+        error: 'ACCOUNT_SUSPENDED',
+        message: 'Your account has been suspended. Contact admin for details.',
+      });
     });
   });
 
@@ -139,7 +287,8 @@ describe('Auth APIs', () => {
           currentPassword: 'password123',
           newPassword: 'newerpassword123',
         });
-      expect([401, 403]).toContain(res.status);
+      expect(res.status).toBe(401);
+      expect(res.body).toEqual({ error: 'UNAUTHORIZED', message: 'Current password is incorrect' });
     });
   });
 

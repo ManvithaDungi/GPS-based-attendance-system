@@ -32,8 +32,56 @@ afterAll(async () => {
 });
 
 describe('Admin APIs', () => {
-  describe('POST /api/v1/admin/students', () => {
-    it('should create a new student successfully as admin', async () => {
+  const adminStubs = [
+    {
+      method: 'get',
+      path: '/api/v1/admin/attendance',
+      message: 'Get all attendance endpoint - TODO: implement',
+    },
+    {
+      method: 'get',
+      path: '/api/v1/admin/students',
+      message: 'Get students endpoint - TODO: implement',
+    },
+    {
+      method: 'get',
+      path: '/api/v1/admin/students/fake-student-id/attendance',
+      message: 'Get student attendance endpoint - TODO: implement',
+    },
+    {
+      method: 'post',
+      path: '/api/v1/admin/premises',
+      message: 'Create premise endpoint - TODO: implement',
+    },
+    {
+      method: 'get',
+      path: '/api/v1/admin/premises',
+      message: 'Get premises endpoint - TODO: implement',
+    },
+  ] as const;
+
+  describe('Mounted admin stubs', () => {
+    it.each(adminStubs)('$method $path should return the documented stub for admins', async ({ method, path, message }) => {
+      const res = await request(app)
+        [method](path)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ message });
+    });
+
+    it.each(adminStubs)('$method $path should return 403 for students', async ({ method, path }) => {
+      const res = await request(app)
+        [method](path)
+        .set('Authorization', `Bearer ${studentToken}`);
+
+      expect(res.status).toBe(403);
+      expect(res.body).toEqual({ error: 'FORBIDDEN' });
+    });
+  });
+
+  describe('Not yet implemented admin student-management routes', () => {
+    it('should return 404 for POST /api/v1/admin/students', async () => {
       const res = await request(app)
         .post('/api/v1/admin/students')
         .set('Authorization', `Bearer ${adminToken}`)
@@ -43,37 +91,17 @@ describe('Admin APIs', () => {
           studentCode: 'STU001',
           password: 'password123'
         });
-      // 404 or 201 based on actual implementation. Assuming standard response.
-      expect([201, 404, 501]).toContain(res.status); // 404/501 if not yet implemented
+      expect(res.status).toBe(404);
     });
 
-    it('should fail to create student if logged in as student', async () => {
-      const res = await request(app)
-        .post('/api/v1/admin/students')
-        .set('Authorization', `Bearer ${studentToken}`)
-        .send({ name: 'Hack', email: 'hack@hack.com', password: 'pass' });
-      expect(res.status).toBeGreaterThanOrEqual(400); // 401/403 expected
-    });
-  });
-
-  describe('GET /api/v1/admin/students', () => {
-    it('should retrieve list of students as admin', async () => {
-      const res = await request(app)
-        .get('/api/v1/admin/students')
-        .set('Authorization', `Bearer ${adminToken}`);
-      expect([200, 404, 501]).toContain(res.status);
-    });
-  });
-
-  describe('PATCH /api/v1/admin/students/:id/status', () => {
-    it('should update student status', async () => {
-      // Find a student first
+    it('should return 404 for PATCH /api/v1/admin/students/:id/status', async () => {
       const student = await prisma.user.findFirst({ where: { role: 'STUDENT' } });
       const res = await request(app)
         .patch(`/api/v1/admin/students/${student?.id}/status`)
         .set('Authorization', `Bearer ${adminToken}`)
         .send({ status: 'SUSPENDED' });
-      expect([200, 404, 501]).toContain(res.status);
+
+      expect(res.status).toBe(404);
     });
   });
 });

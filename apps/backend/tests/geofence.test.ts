@@ -40,61 +40,139 @@ afterAll(async () => {
 });
 
 describe('Geofence APIs', () => {
+  describe('GET /api/v1/geofence/validate', () => {
+    it('should validate a coordinate inside the geofence', async () => {
+      const res = await request(app)
+        .get(`/api/v1/geofence/validate?lat=10&lng=10&locationId=${locationId}&accuracyMeters=10`)
+        .set('Authorization', `Bearer ${studentToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.isWithinGeofence).toBe(true);
+      expect(res.body.distanceM).toBeDefined();
+      expect(res.body.allowedRadiusM).toBe(50);
+      expect(res.body.location).toEqual({
+        id: locationId,
+        name: 'Initial Location',
+        latitude: 10,
+        longitude: 10,
+      });
+    });
+
+    it('should reject low GPS accuracy', async () => {
+      const res = await request(app)
+        .get(`/api/v1/geofence/validate?lat=10&lng=10&locationId=${locationId}&accuracyMeters=101`)
+        .set('Authorization', `Bearer ${studentToken}`);
+
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({
+        error: 'LOW_GPS_ACCURACY',
+        message: 'Device GPS accuracy is too low; location is untrustworthy',
+        statusCode: 400,
+      });
+    });
+
+    it('should reject invalid query params with documented low accuracy response', async () => {
+      const res = await request(app)
+        .get(`/api/v1/geofence/validate?lat=invalid&lng=10&locationId=${locationId}&accuracyMeters=10`)
+        .set('Authorization', `Bearer ${studentToken}`);
+
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({
+        error: 'LOW_GPS_ACCURACY',
+        message: 'Device GPS accuracy is too low; location is untrustworthy',
+        statusCode: 400,
+      });
+    });
+
+    it('should return LOCATION_NOT_FOUND for an unknown location', async () => {
+      const res = await request(app)
+        .get('/api/v1/geofence/validate?lat=10&lng=10&locationId=00000000-0000-0000-0000-000000000000&accuracyMeters=10')
+        .set('Authorization', `Bearer ${studentToken}`);
+
+      expect(res.status).toBe(404);
+      expect(res.body).toEqual({ error: 'LOCATION_NOT_FOUND' });
+    });
+  });
+
   describe('GET /api/v1/geofence/locations', () => {
     it('should list all locations for admin', async () => {
       const res = await request(app)
         .get('/api/v1/geofence/locations')
         .set('Authorization', `Bearer ${adminToken}`);
-      expect([200, 404, 501]).toContain(res.status);
+      expect(res.status).toBe(200);
+      expect(res.body.data).toEqual([
+        {
+          id: locationId,
+          name: 'Initial Location',
+          latitude: 10,
+          longitude: 10,
+          radiusMeters: 50,
+        },
+      ]);
     });
 
     it('should list all locations for student', async () => {
       const res = await request(app)
         .get('/api/v1/geofence/locations')
         .set('Authorization', `Bearer ${studentToken}`);
-      expect([200, 404, 501]).toContain(res.status);
+      expect(res.status).toBe(200);
+      expect(res.body.data).toHaveLength(1);
+      expect(res.body.data[0].id).toBe(locationId);
     });
   });
 
-  describe('POST /api/v1/geofence/locations', () => {
-    it('should allow admin to create a location', async () => {
+  describe('GET /api/v1/geofence/locations/:locationId', () => {
+    it('should return a single location with working hours', async () => {
+      const res = await request(app)
+        .get(`/api/v1/geofence/locations/${locationId}`)
+        .set('Authorization', `Bearer ${studentToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({
+        id: locationId,
+        name: 'Initial Location',
+        latitude: 10,
+        longitude: 10,
+        radiusMeters: 50,
+        workingHours: null,
+      });
+    });
+
+    it('should return LOCATION_NOT_FOUND for an unknown location', async () => {
+      const res = await request(app)
+        .get('/api/v1/geofence/locations/00000000-0000-0000-0000-000000000000')
+        .set('Authorization', `Bearer ${studentToken}`);
+
+      expect(res.status).toBe(404);
+      expect(res.body).toEqual({ error: 'LOCATION_NOT_FOUND' });
+    });
+  });
+
+  describe('Not yet implemented geofence location writes', () => {
+    it('should return 404 for POST /api/v1/geofence/locations', async () => {
       const res = await request(app)
         .post('/api/v1/geofence/locations')
         .set('Authorization', `Bearer ${adminToken}`)
-        .send({
-          name: 'New Location',
-          latitude: 20,
-          longitude: 20,
-          radiusMeters: 100
-        });
-      expect([201, 404, 501]).toContain(res.status);
+        .send({ name: 'New Location', latitude: 20, longitude: 20, radiusMeters: 100 });
+
+      expect(res.status).toBe(404);
     });
 
-    it('should block student from creating a location', async () => {
-      const res = await request(app)
-        .post('/api/v1/geofence/locations')
-        .set('Authorization', `Bearer ${studentToken}`)
-        .send({ name: 'Student Loc', latitude: 30, longitude: 30, radiusMeters: 50 });
-      expect(res.status).toBeGreaterThanOrEqual(400); // 401/403
-    });
-  });
-
-  describe('PUT /api/v1/geofence/locations/:id', () => {
-    it('should allow admin to update a location', async () => {
+    it('should return 404 for PUT /api/v1/geofence/locations/:id', async () => {
       const res = await request(app)
         .put(`/api/v1/geofence/locations/${locationId}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .send({ name: 'Updated Location', radiusMeters: 200 });
-      expect([200, 404, 501]).toContain(res.status);
-    });
-  });
 
-  describe('DELETE /api/v1/geofence/locations/:id', () => {
-    it('should allow admin to delete a location', async () => {
+      expect(res.status).toBe(404);
+    });
+
+    it('should return 404 for DELETE /api/v1/geofence/locations/:id', async () => {
       const res = await request(app)
         .delete(`/api/v1/geofence/locations/${locationId}`)
         .set('Authorization', `Bearer ${adminToken}`);
-      expect([200, 204, 404, 501]).toContain(res.status);
+
+      expect(res.status).toBe(404);
     });
   });
 });

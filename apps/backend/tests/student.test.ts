@@ -25,11 +25,11 @@ afterAll(async () => {
 
 describe('Student APIs', () => {
   describe('GET /api/v1/student/dashboard', () => {
-    it('should retrieve student dashboard data', async () => {
+    it('should return 404 because the student dashboard route group is not mounted', async () => {
       const res = await request(app)
         .get('/api/v1/student/dashboard') // Assuming this is the route for dashboard
         .set('Authorization', `Bearer ${studentToken}`);
-      expect([200, 404, 501]).toContain(res.status);
+      expect(res.status).toBe(404);
     });
   });
 });
