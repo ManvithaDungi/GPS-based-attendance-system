@@ -8,15 +8,22 @@ export const calculateHaversineDistance = (
   lat2: number,
   lon2: number
 ): number => {
-  const R = 6371000; // Earth's radius in meters
+  const R = 6371; // Earth's radius in kilometers
 
-  // TODO: Implement haversine formula
-  // Convert lat/lon to radians
-  // Calculate distance using formula: a = sin²(Δlat/2) + cos(lat1) * cos(lat2) * sin²(Δlon/2)
-  // c = 2 * atan2(√a, √(1−a))
-  // d = R * c
+  const toRad = (value: number) => (value * Math.PI) / 180;
 
-  return 0; // Placeholder
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const lat1Rad = toRad(lat1);
+  const lat2Rad = toRad(lat2);
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1Rad) * Math.cos(lat2Rad);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const d = R * c * 1000;
+
+  return d;
 };
 
 /**

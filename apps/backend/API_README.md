@@ -3,32 +3,61 @@
 > **Base URL:** `http://localhost:3000/api/v1`
 > **Auth:** All protected routes require `Authorization: Bearer <access_token>` header
 > **Roles:** `[S]` = Student only · `[A]` = Admin only · `[S/A]` = Both
-> **Note:** All endpoint paths shown below are relative to the base URL. For example, `POST /auth/register` → `POST http://localhost:3000/api/v1/auth/register`
+> **Note:** All endpoint paths shown below are relative to the base URL.
+
+---
+
+## Implementation Status
+
+| Route Group | Mounted Path | Status |
+|---|---|---|
+| Auth | `/api/v1/auth` | ✅ Implemented |
+| Attendance | `/api/v1/attendance` | ✅ Implemented |
+| Geofence | `/api/v1/geofence` | ✅ Implemented (partially tested) |
+| Admin | `/api/v1/admin` | ⚠️ Mounted — handlers are stubs |
+| Student Dashboard | `/api/v1/student` | ❌ Not mounted |
+| Notifications | `/api/v1/notifications` | ❌ Not mounted |
+| Fraud Logs | `/api/v1/fraud` | ❌ Not mounted |
+| Reports / Config | `/api/v1/admin/reports`, `/api/v1/admin/config` | ❌ Not mounted |
 
 ---
 
 ## Table of Contents
 
-1. [Authentication](#1-authentication)
-2. [Attendance](#2-attendance)
-3. [Geofence](#3-geofence)
-4. [Student Dashboard](#4-student-dashboard)
-5. [Admin Dashboard](#5-admin-dashboard)
-6. [Admin — Student Management](#6-admin--student-management)
-7. [Admin — Locations Management](#7-admin--locations-management)
-8. [Admin — Reports & Export](#8-admin--reports--export)
-9. [Notifications](#9-notifications)
-10. [Fraud Logs](#10-fraud-logs)
-11. [System Configuration](#11-system-configuration)
-12. [System Design Enhancements](#12-system-design-enhancements)
-13. [Error Responses](#13-error-responses)
+1. [Health Check](#1-health-check)
+2. [Authentication](#2-authentication)
+3. [Attendance](#3-attendance)
+4. [Geofence](#4-geofence)
+5. [Admin (Stubs)](#5-admin-stubs)
+6. [Middleware Behavior](#6-middleware-behavior)
+7. [Error Responses](#7-error-responses)
+8. [Not Yet Implemented](#8-not-yet-implemented)
 
 ---
 
-## 1. Authentication
+## 1. Health Check
+
+### GET `/health`
+
+> **Note:** Full path is `http://localhost:3000/health` (not under `/api/v1`).
+
+**Access:** Public
+
+**Response `200`:**
+```json
+{
+  "status": "ok",
+  "timestamp": "2026-05-01T09:00:00.000Z"
+}
+```
+
+---
+
+## 2. Authentication
 
 ### POST `/auth/register`
-Register a new admin account (admin bootstrap only). Students cannot self-register; they must be added by an admin via `POST /admin/students`.
+
+Register a new admin account. Students cannot self-register — they must be created by an admin.
 
 **Access:** Public (restricted to `role: ADMIN` server-side)
 
@@ -37,7 +66,7 @@ Register a new admin account (admin bootstrap only). Students cannot self-regist
 {
   "name": "Admin User",
   "email": "admin@example.com",
-  "password": "securepassword",
+  "password": "password123",
   "role": "ADMIN"
 }
 ```
@@ -52,24 +81,32 @@ Register a new admin account (admin bootstrap only). Students cannot self-regist
     "email": "admin@example.com",
     "role": "ADMIN",
     "studentCode": null,
-    "createdAt": "2024-01-15T09:00:00.000Z",
-    "updatedAt": "2024-01-15T09:00:00.000Z"
+    "createdAt": "2026-05-01T09:00:00.000Z",
+    "updatedAt": "2026-05-01T09:00:00.000Z"
   }
 }
 ```
 
-**Response `403` (if role is not ADMIN):**
+**Response `403` (role is not ADMIN):**
 ```json
 {
   "error": "FORBIDDEN",
-  "message": "Only ADMIN role can self-register. Students must be added by an admin.",
-  "statusCode": 403
+  "message": "Only ADMIN role can self-register. Students must be added by an admin."
+}
+```
+
+**Response `400` (duplicate email):**
+```json
+{
+  "error": "Validation error",
+  "details": []
 }
 ```
 
 ---
 
 ### POST `/auth/login`
+
 Login and receive access + refresh tokens.
 
 **Access:** Public
@@ -77,13 +114,13 @@ Login and receive access + refresh tokens.
 **Request Body:**
 ```json
 {
-  "email": "john@example.com",
-  "password": "securepassword",
-  "deviceId": "device-fingerprint-string"
+  "email": "admin@example.com",
+  "password": "password123",
+  "deviceId": "device-admin"
 }
 ```
 
-> Students are locked to one device per session. If logging in from a different device, the previous session is invalidated and a new one is created for the new device. Sessions are tracked in the `Session` model, bound to `userId` and `deviceId`.
+> For student users, all previous sessions are deleted before a new session is created (single-device enforcement). Sessions are stored in the `Session` model, bound to `userId` and `deviceId`.
 
 **Response `200`:**
 ```json
@@ -100,19 +137,27 @@ Login and receive access + refresh tokens.
 }
 ```
 
+**Response `401` (invalid credentials):**
+```json
+{
+  "error": "UNAUTHORIZED",
+  "message": "Invalid email or password"
+}
+```
+
 **Response `401` (account suspended):**
 ```json
 {
   "error": "ACCOUNT_SUSPENDED",
-  "message": "Your account has been suspended. Contact admin for details.",
-  "statusCode": 401
+  "message": "Your account has been suspended. Contact admin for details."
 }
 ```
 
 ---
 
 ### POST `/auth/refresh`
-Get a new access token using a refresh token. Implements single-use refresh token rotation for security.
+
+Rotate a refresh token and receive new tokens.
 
 **Access:** Public
 
@@ -123,7 +168,7 @@ Get a new access token using a refresh token. Implements single-use refresh toke
 }
 ```
 
-> Refresh tokens are stored in the `Session` model and are single-use. After refresh, the previous token is invalidated. If a previously used token is reused, all sessions for the user/device may be invalidated as a security measure.
+> Refresh tokens are single-use. Each refresh invalidates the previous token and issues a new one. The `Session` record is updated with the new refresh token and a new 7-day expiry.
 
 **Response `200`:**
 ```json
@@ -133,19 +178,19 @@ Get a new access token using a refresh token. Implements single-use refresh toke
 }
 ```
 
-**Response `401` (token already used or invalid):**
+**Response `401` (invalid or expired token):**
 ```json
 {
-  "error": "INVALID_REFRESH_TOKEN",
-  "message": "Refresh token has been revoked or is invalid",
-  "statusCode": 401
+  "error": "UNAUTHORIZED",
+  "message": "Invalid or expired refresh token"
 }
 ```
 
 ---
 
 ### POST `/auth/logout`
-Invalidate the current session/refresh token. Deletes the corresponding `Session` record.
+
+Invalidate the current session by deleting the refresh-token record.
 
 **Access:** Protected `[S/A]`
 
@@ -166,7 +211,8 @@ Invalidate the current session/refresh token. Deletes the corresponding `Session
 ---
 
 ### GET `/auth/me`
-Get current authenticated user's profile.
+
+Get the current authenticated user's profile.
 
 **Access:** Protected `[S/A]`
 
@@ -186,19 +232,20 @@ Get current authenticated user's profile.
 }
 ```
 
-> `status` reflects the `UserStatus` enum: `ACTIVE` or `SUSPENDED`. `deviceId` and `fcmToken` are only returned on this endpoint — never on public/list responses.
+> `deviceId` and `fcmToken` are only returned on this endpoint — never on list or public responses.
 
 ---
 
 ### PATCH `/auth/me/fcm-token`
-Update the FCM push notification token stored on the `User` record.
+
+Update the FCM push notification token for the current user.
 
 **Access:** Protected `[S/A]`
 
 **Request Body:**
 ```json
 {
-  "fcmToken": "fcm-token-string"
+  "fcmToken": "new_token_123"
 }
 ```
 
@@ -212,6 +259,7 @@ Update the FCM push notification token stored on the `User` record.
 ---
 
 ### PATCH `/auth/me/password`
+
 Change the current user's password.
 
 **Access:** Protected `[S/A]`
@@ -219,7 +267,7 @@ Change the current user's password.
 **Request Body:**
 ```json
 {
-  "currentPassword": "oldpassword",
+  "currentPassword": "password123",
   "newPassword": "newpassword123"
 }
 ```
@@ -231,25 +279,27 @@ Change the current user's password.
 }
 ```
 
-**Response `401` (invalid current password):**
+**Response `401` (wrong current password):**
 ```json
 {
   "error": "UNAUTHORIZED",
-  "message": "Current password is incorrect",
-  "statusCode": 401
+  "message": "Current password is incorrect"
 }
 ```
 
 ---
 
-## 2. Attendance
+## 3. Attendance
+
+Attendance routes require authentication. Role checks are not currently enforced — any authenticated user may call these handlers.
 
 ### POST `/attendance/checkin`
-Check in to the location. Validates geofence server-side using the Haversine formula. Supports idempotency to prevent duplicate records on retries.
 
-**Access:** Protected `[S]`
+Check in to a location. Validates geofence server-side using the Haversine formula. Supports idempotency to prevent duplicate records on retries.
 
-**Headers:**
+**Access:** Protected `[S/A]`
+
+**Optional Header:**
 ```http
 Idempotency-Key: <unique-request-id>
 ```
@@ -259,13 +309,13 @@ Idempotency-Key: <unique-request-id>
 {
   "lat": 19.0760,
   "lng": 72.8777,
-  "timestamp": "2024-01-15T09:05:00.000Z",
+  "timestamp": "2026-05-01T09:05:00.000Z",
   "locationId": "uuid",
   "accuracyMeters": 10
 }
 ```
 
-> `timestamp` must not be older than 30 seconds (replay protection). `accuracyMeters` is the GPS accuracy reported by the device — requests with low accuracy are rejected to prevent location spoofing.
+> `timestamp` must not be older than 30 seconds (replay protection). Requests where `accuracyMeters > 100` are rejected. The server computes Haversine distance from the location centre — the client-side check is UX only.
 
 **Response `200`:**
 ```json
@@ -274,8 +324,8 @@ Idempotency-Key: <unique-request-id>
   "attendance": {
     "id": "uuid",
     "locationId": "uuid",
-    "date": "2024-01-15",
-    "checkInTime": "2024-01-15T09:05:00.000Z",
+    "date": "2026-05-01",
+    "checkInTime": "2026-05-01T09:05:00.000Z",
     "checkInLat": 19.0760,
     "checkInLng": 72.8777,
     "checkInDistanceM": 45.3,
@@ -286,42 +336,48 @@ Idempotency-Key: <unique-request-id>
 }
 ```
 
+**Response `400` (stale timestamp):**
+```json
+{
+  "error": "STALE_TIMESTAMP",
+  "message": "Timestamp is older than 30 seconds"
+}
+```
+
+**Response `400` (low GPS accuracy):**
+```json
+{
+  "error": "LOW_GPS_ACCURACY",
+  "message": "Device GPS accuracy is too low; location is untrustworthy",
+  "statusCode": 400
+}
+```
+
 **Response `403` (outside geofence):**
 ```json
 {
   "error": "OUTSIDE_GEOFENCE",
-  "message": "You are outside the allowed zone",
   "distanceM": 180.5,
   "allowedRadiusM": 100
 }
 ```
 
-**Response `401` (device mismatch):**
+**Response `409` (duplicate same-day check-in):**
 ```json
 {
-  "error": "DEVICE_MISMATCH",
-  "message": "You are attempting to check in from a different device than your last login",
-  "statusCode": 401
-}
-```
-
-**Response `404` (location not found):**
-```json
-{
-  "error": "LOCATION_NOT_FOUND",
-  "message": "The specified location does not exist",
-  "statusCode": 404
+  "error": "ALREADY_CHECKED_IN"
 }
 ```
 
 ---
 
 ### POST `/attendance/checkout`
-Check out from the location. Finalises the `AttendanceLog` record including duration, status, and punctuality. Supports idempotency.
 
-**Access:** Protected `[S]`
+Complete today's attendance record. Calculates duration and sets attendance status and punctuality based on location working hours.
 
-**Headers:**
+**Access:** Protected `[S/A]`
+
+**Optional Header:**
 ```http
 Idempotency-Key: <unique-request-id>
 ```
@@ -331,11 +387,13 @@ Idempotency-Key: <unique-request-id>
 {
   "lat": 19.0762,
   "lng": 72.8779,
-  "timestamp": "2024-01-15T15:30:00.000Z",
+  "timestamp": "2026-05-01T15:30:00.000Z",
   "locationId": "uuid",
   "accuracyMeters": 12
 }
 ```
+
+> Same timestamp and accuracy rules apply as check-in. Requires an existing same-day check-in record. Sets `status` to `PRESENT`, `LATE`, or `ABSENT` and `punctuality` to `ON_TIME` or `LATE` based on the location's working hours config.
 
 **Response `200`:**
 ```json
@@ -344,13 +402,13 @@ Idempotency-Key: <unique-request-id>
   "attendance": {
     "id": "uuid",
     "locationId": "uuid",
-    "date": "2024-01-15",
-    "checkInTime": "2024-01-15T09:05:00.000Z",
+    "date": "2026-05-01",
+    "checkInTime": "2026-05-01T09:05:00.000Z",
     "checkInLat": 19.0760,
     "checkInLng": 72.8777,
     "checkInDistanceM": 45.3,
     "checkInAccuracyM": 10,
-    "checkOutTime": "2024-01-15T15:30:00.000Z",
+    "checkOutTime": "2026-05-01T15:30:00.000Z",
     "checkOutLat": 19.0762,
     "checkOutLng": 72.8779,
     "checkOutDistanceM": 52.1,
@@ -363,53 +421,62 @@ Idempotency-Key: <unique-request-id>
 }
 ```
 
-> After check-out, fraud detection and analytics updates (`DailyStats`) are processed asynchronously via background jobs.
+**Response `409` (duplicate checkout):**
+```json
+{
+  "error": "DUPLICATE_ATTENDANCE"
+}
+```
 
 ---
 
 ### GET `/attendance/today`
-Get the current user's `AttendanceLog` record for today.
 
-**Access:** Protected `[S]`
+Get the current user's attendance record for today.
+
+**Access:** Protected `[S/A]`
 
 **Response `200`:**
 ```json
 {
   "id": "uuid",
   "locationId": "uuid",
-  "date": "2024-01-15",
+  "date": "2026-05-01",
   "status": "PRESENT",
   "punctuality": "ON_TIME",
-  "checkInTime": "2024-01-15T09:05:00.000Z",
+  "checkInTime": "2026-05-01T09:05:00.000Z",
   "checkInLat": 19.0760,
   "checkInLng": 72.8777,
   "checkInAccuracyM": 10,
-  "checkOutTime": "2024-01-15T15:30:00.000Z",
+  "checkOutTime": "2026-05-01T15:30:00.000Z",
   "checkOutLat": 19.0762,
   "checkOutLng": 72.8779,
   "checkOutAccuracyM": 12,
   "durationHours": 6.42,
   "isAutoClosed": false,
-  "createdAt": "2024-01-15T09:05:00.000Z",
-  "updatedAt": "2024-01-15T15:30:00.000Z"
+  "createdAt": "2026-05-01T09:05:00.000Z",
+  "updatedAt": "2026-05-01T15:30:00.000Z"
 }
 ```
+
+**Response `404`:** No attendance record found for today.
 
 ---
 
 ### GET `/attendance/history`
-Get the current user's attendance history with pagination.
 
-**Access:** Protected `[S]`
+Get paginated attendance history for the current user. Soft-deleted records are excluded.
+
+**Access:** Protected `[S/A]`
 
 **Query Params:**
 
-| Param | Type | Description |
-|-------|------|-------------|
-| `page` | number | Page number (default: 1) |
-| `limit` | number | Records per page (default: 30) |
-| `from` | string | Start date `YYYY-MM-DD` |
-| `to` | string | End date `YYYY-MM-DD` |
+| Param | Type | Default | Description |
+|---|---|---|---|
+| `page` | number | `1` | Page number |
+| `limit` | number | `10` | Records per page |
+| `from` | string | — | Start date `YYYY-MM-DD` |
+| `to` | string | — | End date `YYYY-MM-DD` |
 
 **Response `200`:**
 ```json
@@ -418,40 +485,35 @@ Get the current user's attendance history with pagination.
     {
       "id": "uuid",
       "locationId": "uuid",
-      "date": "2024-01-15",
+      "date": "2026-05-01",
       "status": "PRESENT",
       "punctuality": "ON_TIME",
-      "checkInTime": "2024-01-15T09:05:00.000Z",
-      "checkInLat": 19.0760,
-      "checkInLng": 72.8777,
-      "checkInAccuracyM": 10,
-      "checkOutTime": "2024-01-15T15:30:00.000Z",
-      "checkOutLat": 19.0762,
-      "checkOutLng": 72.8779,
-      "checkOutAccuracyM": 12,
+      "checkInTime": "2026-05-01T09:05:00.000Z",
+      "checkOutTime": "2026-05-01T15:30:00.000Z",
       "durationHours": 6.42,
       "isAutoClosed": false,
-      "createdAt": "2024-01-15T09:05:00.000Z",
-      "updatedAt": "2024-01-15T15:30:00.000Z"
+      "createdAt": "2026-05-01T09:05:00.000Z",
+      "updatedAt": "2026-05-01T15:30:00.000Z"
     }
   ],
   "pagination": {
     "page": 1,
-    "limit": 30,
+    "limit": 10,
     "total": 120,
-    "totalPages": 4
+    "totalPages": 12
   }
 }
 ```
 
-> Soft-deleted records (`deletedAt IS NOT NULL`) are excluded from all history responses.
-
 ---
 
 ### GET `/attendance/summary`
-Get the current student's attendance summary including percentage.
 
-**Access:** Protected `[S]`
+Get aggregate attendance counts for the current user.
+
+**Access:** Protected `[S/A]`
+
+> Late days are counted as present days for the attendance percentage calculation.
 
 **Response `200`:**
 ```json
@@ -460,27 +522,30 @@ Get the current student's attendance summary including percentage.
   "presentDays": 105,
   "absentDays": 10,
   "lateDays": 5,
-  "attendancePercentage": 87.5
+  "attendancePercentage": 91.67
 }
 ```
 
 ---
 
-## 3. Geofence
+## 4. Geofence
+
+Geofence routes require authentication. Role checks are not currently enforced.
 
 ### GET `/geofence/validate`
-Validate whether a given coordinate is inside a location's geofence. GPS accuracy is also validated — low-accuracy requests are rejected.
 
-**Access:** Protected `[S]`
+Validate whether a coordinate is inside a location's geofence.
+
+**Access:** Protected `[S/A]`
 
 **Query Params:**
 
-| Param | Type | Description |
-|-------|------|-------------|
-| `lat` | float | Latitude |
-| `lng` | float | Longitude |
-| `locationId` | string | UUID of location |
-| `accuracyMeters` | float | GPS accuracy from device (optional, recommended) |
+| Param | Type | Required | Notes |
+|---|---|---|---|
+| `lat` | float | Yes | Between -90 and 90 |
+| `lng` | float | Yes | Between -180 and 180 |
+| `locationId` | string | Yes | UUID of the location |
+| `accuracyMeters` | float | Yes | Must be `>= 0`; rejected if `> 100` |
 
 **Response `200`:**
 ```json
@@ -497,10 +562,20 @@ Validate whether a given coordinate is inside a location's geofence. GPS accurac
 }
 ```
 
+**Response `400` (invalid params or low accuracy):**
+```json
+{
+  "error": "LOW_GPS_ACCURACY",
+  "message": "Device GPS accuracy is too low; location is untrustworthy",
+  "statusCode": 400
+}
+```
+
 ---
 
 ### GET `/geofence/locations`
-Get all active locations with geofence config. Results are cached (TTL: 5–10 minutes).
+
+List all active locations. Soft-deleted locations are excluded.
 
 **Access:** Protected `[S/A]`
 
@@ -519,12 +594,11 @@ Get all active locations with geofence config. Results are cached (TTL: 5–10 m
 }
 ```
 
-> Soft-deleted locations (`deletedAt IS NOT NULL`) are excluded.
-
 ---
 
 ### GET `/geofence/locations/:locationId`
-Get a single location's geofence details including working hours.
+
+Get a single location's details including working hours.
 
 **Access:** Protected `[S/A]`
 
@@ -545,914 +619,106 @@ Get a single location's geofence details including working hours.
 }
 ```
 
----
-
-## 4. Student Dashboard
-
-### GET `/student/dashboard`
-Get a full summary for the student's dashboard screen. Response is cached (TTL: 30–60 seconds) using precomputed aggregates.
-
-**Access:** Protected `[S]`
-
-**Response `200`:**
+**Response `404`:**
 ```json
 {
-  "today": {
-    "date": "2024-01-15",
-    "status": "PRESENT",
-    "punctuality": "ON_TIME",
-    "checkInTime": "2024-01-15T09:05:00.000Z",
-    "checkOutTime": "2024-01-15T15:30:00.000Z",
-    "durationHours": 6.42
-  },
-  "summary": {
-    "totalDays": 120,
-    "presentDays": 105,
-    "absentDays": 10,
-    "lateDays": 5,
-    "attendancePercentage": 87.5
-  },
-  "canCheckIn": true,
-  "canCheckOut": false
+  "error": "LOCATION_NOT_FOUND"
 }
 ```
 
 ---
 
-## 5. Admin Dashboard
+## 5. Admin (Stubs)
 
-### GET `/admin/dashboard`
-Get aggregated daily attendance stats for the admin overview. Served from precomputed `DailyStats` records — O(1) query, not computed in real-time. Cached (TTL: 30–60 seconds).
+Admin routes are mounted under `/api/v1/admin` and protected by both `authMiddleware` and `requireRole("ADMIN")`. All handlers below are currently stubs — they return a TODO message and do not query or mutate data.
 
-**Access:** Protected `[A]`
-
-**Query Params:**
-
-| Param | Type | Description |
-|-------|------|-------------|
-| `date` | string | Date `YYYY-MM-DD` (default: today) |
-| `locationId` | string | Filter by location (optional) |
-
-**Response `200`:**
-```json
-{
-  "date": "2024-01-15",
-  "totalStudents": 500,
-  "presentToday": 420,
-  "absentToday": 50,
-  "pendingToday": 30,
-  "onTime": 300,
-  "late": 120
-}
-```
-
----
+> A student token will receive `403` on all admin routes.
 
 ### GET `/admin/attendance`
-Get all students' attendance records with filters.
-
-**Access:** Protected `[A]`
-
-**Query Params:**
-
-| Param | Type | Description |
-|-------|------|-------------|
-| `date` | string | Filter by date `YYYY-MM-DD` |
-| `from` | string | Start date range |
-| `to` | string | End date range |
-| `status` | string | `PRESENT`, `ABSENT`, `LATE`, `PENDING` |
-| `locationId` | string | Filter by location |
-| `page` | number | Page number |
-| `limit` | number | Records per page |
 
 **Response `200`:**
 ```json
 {
-  "data": [
-    {
-      "id": "uuid",
-      "student": {
-        "id": "uuid",
-        "name": "John Doe",
-        "email": "john@example.com",
-        "studentCode": "CS2024001"
-      },
-      "locationId": "uuid",
-      "date": "2024-01-15",
-      "status": "PRESENT",
-      "punctuality": "ON_TIME",
-      "checkInTime": "2024-01-15T09:05:00.000Z",
-      "checkInLat": 19.0760,
-      "checkInLng": 72.8777,
-      "checkInDistanceM": 45.3,
-      "checkInAccuracyM": 10,
-      "checkOutTime": "2024-01-15T15:30:00.000Z",
-      "checkOutLat": 19.0762,
-      "checkOutLng": 72.8779,
-      "checkOutDistanceM": 52.1,
-      "checkOutAccuracyM": 12,
-      "durationHours": 6.42,
-      "isAutoClosed": false,
-      "createdAt": "2024-01-15T09:05:00.000Z",
-      "updatedAt": "2024-01-15T15:30:00.000Z"
-    }
-  ],
-  "pagination": {
-    "page": 1,
-    "limit": 50,
-    "total": 420,
-    "totalPages": 9
-  }
-}
-```
-
----
-
-### GET `/admin/attendance/trends`
-Get attendance trends for charts (daily/monthly/yearly). Sourced from `DailyStats` aggregates.
-
-**Access:** Protected `[A]`
-
-**Query Params:**
-
-| Param | Type | Description |
-|-------|------|-------------|
-| `period` | string | `daily`, `monthly`, `yearly` |
-| `from` | string | Start date |
-| `to` | string | End date |
-| `locationId` | string | Filter by location (optional) |
-
-**Response `200`:**
-```json
-{
-  "period": "monthly",
-  "data": [
-    {
-      "label": "Jan 2024",
-      "present": 8820,
-      "absent": 1050,
-      "late": 630
-    }
-  ]
-}
-```
-
----
-
-## 6. Admin — Student Management
-
-### POST `/admin/students`
-Create a new student account. Only admins can do this; students cannot self-register.
-
-**Access:** Protected `[A]`
-
-**Request Body:**
-```json
-{
-  "name": "Jane Smith",
-  "email": "jane@example.com",
-  "password": "temporaryPassword123",
-  "studentCode": "CS2024002"
-}
-```
-
-> The `role` is hardcoded to `STUDENT` server-side. The `status` defaults to `ACTIVE`. `studentCode` must be globally unique.
-
-**Response `201`:**
-```json
-{
-  "message": "Student added successfully",
-  "user": {
-    "id": "uuid",
-    "name": "Jane Smith",
-    "email": "jane@example.com",
-    "role": "STUDENT",
-    "status": "ACTIVE",
-    "studentCode": "CS2024002",
-    "createdAt": "2024-01-15T09:00:00.000Z",
-    "updatedAt": "2024-01-15T09:00:00.000Z"
-  }
-}
-```
-
-**Response `409` (duplicate email or studentCode):**
-```json
-{
-  "error": "DUPLICATE_STUDENT",
-  "message": "A student with this email or studentCode already exists",
-  "statusCode": 409
-}
-```
-
----
-
-### POST `/admin/students/bulk`
-Create multiple student accounts in bulk. Accepts CSV or JSON array.
-
-**Access:** Protected `[A]`
-
-**Request Body (JSON):**
-```json
-{
-  "students": [
-    {
-      "name": "Jane Smith",
-      "email": "jane@example.com",
-      "password": "tempPass123",
-      "studentCode": "CS2024002"
-    },
-    {
-      "name": "Bob Johnson",
-      "email": "bob@example.com",
-      "password": "tempPass456",
-      "studentCode": "CS2024003"
-    }
-  ]
-}
-```
-
-**Request Body (CSV multipart upload):**
-- Field name: `file`
-- File format: CSV with headers `name,email,password,studentCode`
-
-**Response `200`:**
-```json
-{
-  "message": "Bulk import completed",
-  "summary": {
-    "total": 2,
-    "created": 2,
-    "failed": 0,
-    "duplicates": 0
-  },
-  "created": [
-    {
-      "id": "uuid",
-      "name": "Jane Smith",
-      "email": "jane@example.com",
-      "studentCode": "CS2024002"
-    }
-  ],
-  "failed": [],
-  "duplicates": []
-}
-```
-
-**Response `400` (invalid file format):**
-```json
-{
-  "error": "VALIDATION_ERROR",
-  "message": "Invalid CSV format. Required columns: name, email, password, studentCode",
-  "statusCode": 400
+  "message": "Get all attendance endpoint - TODO: implement"
 }
 ```
 
 ---
 
 ### GET `/admin/students`
-List all students with optional search and filters. Excludes soft-deleted users (`deletedAt IS NOT NULL`).
-
-**Access:** Protected `[A]`
-
-**Query Params:**
-
-| Param | Type | Description |
-|-------|------|-------------|
-| `search` | string | Search by name, email, or studentCode |
-| `status` | string | `ACTIVE` or `SUSPENDED` |
-| `page` | number | Page number |
-| `limit` | number | Records per page |
 
 **Response `200`:**
 ```json
 {
-  "data": [
-    {
-      "id": "uuid",
-      "name": "John Doe",
-      "email": "john@example.com",
-      "studentCode": "CS2024001",
-      "status": "ACTIVE",
-      "createdAt": "2024-01-01T00:00:00.000Z",
-      "updatedAt": "2024-01-01T00:00:00.000Z"
-    }
-  ],
-  "pagination": {
-    "page": 1,
-    "limit": 50,
-    "total": 500,
-    "totalPages": 10
-  }
-}
-```
-
----
-
-### GET `/admin/students/:studentId`
-Get a specific student's profile.
-
-**Access:** Protected `[A]`
-
-**Response `200`:**
-```json
-{
-  "id": "uuid",
-  "name": "John Doe",
-  "email": "john@example.com",
-  "studentCode": "CS2024001",
-  "status": "ACTIVE",
-  "createdAt": "2024-01-01T00:00:00.000Z",
-  "updatedAt": "2024-01-01T00:00:00.000Z"
+  "message": "Get students endpoint - TODO: implement"
 }
 ```
 
 ---
 
 ### GET `/admin/students/:studentId/attendance`
-Get a specific student's attendance history and summary.
-
-**Access:** Protected `[A]`
-
-**Query Params:** Same as `GET /attendance/history`
 
 **Response `200`:**
 ```json
 {
-  "student": {
-    "id": "uuid",
-    "name": "John Doe",
-    "studentCode": "CS2024001"
-  },
-  "summary": {
-    "totalDays": 120,
-    "presentDays": 105,
-    "absentDays": 10,
-    "lateDays": 5,
-    "attendancePercentage": 87.5
-  },
-  "data": []
+  "message": "Get student attendance endpoint - TODO: implement"
 }
 ```
 
 ---
 
-### PATCH `/admin/students/:studentId/status`
-Suspend or reactivate a student account. Updates the `UserStatus` field — a soft operation that preserves all historical data.
-
-**Access:** Protected `[A]`
-
-**Request Body:**
-```json
-{
-  "status": "SUSPENDED"
-}
-```
-
-> Valid values match the `UserStatus` enum: `ACTIVE`, `SUSPENDED`. Suspended students cannot log in or check in.
+### POST `/admin/premises`
 
 **Response `200`:**
 ```json
 {
-  "message": "Student status updated",
-  "student": {
-    "id": "uuid",
-    "name": "Jane Smith",
-    "email": "jane@example.com",
-    "studentCode": "CS2024002",
-    "status": "SUSPENDED",
-    "createdAt": "2024-01-01T00:00:00.000Z",
-    "updatedAt": "2024-01-15T14:30:00.000Z"
-  }
+  "message": "Create premise endpoint - TODO: implement"
 }
 ```
 
 ---
 
-### POST `/admin/students/:studentId/reset-password`
-Reset a student's password to a temporary value. Student must change it on next login.
-
-**Access:** Protected `[A]`
-
-**Request Body:**
-```json
-{
-  "temporaryPassword": "tempPass123"
-}
-```
+### GET `/admin/premises`
 
 **Response `200`:**
 ```json
 {
-  "message": "Password reset successfully",
-  "temporaryPassword": "tempPass123",
-  "student": {
-    "id": "uuid",
-    "name": "Jane Smith",
-    "email": "jane@example.com",
-    "studentCode": "CS2024002"
-  }
+  "message": "Get premises endpoint - TODO: implement"
 }
 ```
 
 ---
 
-## 7. Admin — Locations Management
+## 6. Middleware Behavior
 
-### POST `/admin/locations`
-Create a new location with geofence config. Also creates a linked `WorkingHours` record.
+### Auth Middleware
 
-**Access:** Protected `[A]`
+Applied to all protected routes.
 
-**Request Body:**
-```json
-{
-  "name": "College Campus",
-  "latitude": 19.0760,
-  "longitude": 72.8777,
-  "radiusMeters": 100,
-  "workingHours": {
-    "startTime": "09:00",
-    "endTime": "17:00",
-    "lateThresholdMins": 15,
-    "minDurationHours": 6
-  }
-}
-```
+- Reads the bearer token from the `Authorization` header.
+- Verifies the JWT with `JWT_SECRET`.
+- Loads the user from the database.
+- Adds `req.user` with `id`, `email`, `role`, and `status`.
+- Returns `401` for a missing token, unknown user, or suspended account.
+- Returns `403` for an invalid or tampered token.
 
-**Response `201`:**
-```json
-{
-  "id": "uuid",
-  "name": "College Campus",
-  "latitude": 19.0760,
-  "longitude": 72.8777,
-  "radiusMeters": 100,
-  "createdAt": "2024-01-01T00:00:00.000Z",
-  "updatedAt": "2024-01-01T00:00:00.000Z",
-  "workingHours": {
-    "startTime": "09:00",
-    "endTime": "17:00",
-    "lateThresholdMins": 15,
-    "minDurationHours": 6
-  }
-}
-```
+### RBAC Middleware
 
----
+Applied to admin routes (`requireRole("ADMIN")`).
 
-### GET `/admin/locations`
-List all active locations. Excludes soft-deleted locations (`deletedAt IS NOT NULL`).
+- Checks `req.user.role` against the allowed role list.
+- Returns `403` if the role does not match.
 
-**Access:** Protected `[A]`
+### Idempotency Middleware
 
-**Response `200`:**
-```json
-{
-  "data": [
-    {
-      "id": "uuid",
-      "name": "College Campus",
-      "latitude": 19.0760,
-      "longitude": 72.8777,
-      "radiusMeters": 100,
-      "createdAt": "2024-01-01T00:00:00.000Z",
-      "updatedAt": "2024-01-01T00:00:00.000Z"
-    }
-  ]
-}
-```
+Applied to `POST /attendance/checkin` and `POST /attendance/checkout`.
 
----
-
-### PATCH `/admin/locations/:locationId`
-Update a location's geofence or working hours config. Partially updates the `Location` and/or `WorkingHours` record.
-
-**Access:** Protected `[A]`
-
-**Request Body:** (all fields optional)
-```json
-{
-  "name": "Main Campus",
-  "latitude": 19.0761,
-  "longitude": 72.8778,
-  "radiusMeters": 150,
-  "workingHours": {
-    "startTime": "08:30",
-    "lateThresholdMins": 10
-  }
-}
-```
-
-**Response `200`:**
-```json
-{
-  "id": "uuid",
-  "name": "Main Campus",
-  "latitude": 19.0761,
-  "longitude": 72.8778,
-  "radiusMeters": 150,
-  "createdAt": "2024-01-01T00:00:00.000Z",
-  "updatedAt": "2024-01-15T10:30:00.000Z",
-  "workingHours": {
-    "startTime": "08:30",
-    "endTime": "17:00",
-    "lateThresholdMins": 10,
-    "minDurationHours": 6
-  }
-}
-```
-
----
-
-### DELETE `/admin/locations/:locationId`
-Soft-delete a location by setting `deletedAt`. Associated `AttendanceLog` and `DailyStats` records are retained.
-
-**Access:** Protected `[A]`
-
-**Response `200`:**
-```json
-{
-  "message": "Location deleted successfully"
-}
-```
-
----
-
-## 8. Admin — Reports & Export
-
-### GET `/admin/reports/daily`
-Generate a daily attendance report. For `csv`/`pdf` formats, the job is enqueued asynchronously via `ReportJob` — a polling URL or webhook delivers the file when ready.
-
-**Access:** Protected `[A]`
-
-**Query Params:**
-
-| Param | Type | Description |
-|-------|------|-------------|
-| `date` | string | `YYYY-MM-DD` (default: today) |
-| `locationId` | string | Filter by location (optional) |
-| `format` | string | `json`, `csv`, `pdf` (default: `json`) |
-
-**Response `200` (json):**
-```json
-{
-  "report": {
-    "date": "2024-01-15",
-    "generatedAt": "2024-01-15T18:00:00.000Z",
-    "totalStudents": 500,
-    "present": 420,
-    "absent": 50,
-    "late": 120,
-    "onTime": 300
-  },
-  "data": []
-}
-```
-
-**Response `202` (csv / pdf — async):**
-```json
-{
-  "status": "processing",
-  "jobId": "uuid",
-  "downloadUrl": null
-}
-```
-
-> Poll `GET /admin/reports/jobs/:jobId` to check status. When `status` is `DONE`, `downloadUrl` will be populated. For `json` format, results are returned synchronously.
-
----
-
-### GET `/admin/reports/monthly`
-Generate a monthly attendance report sourced from `DailyStats` aggregates.
-
-**Access:** Protected `[A]`
-
-**Query Params:**
-
-| Param | Type | Description |
-|-------|------|-------------|
-| `month` | number | Month (1–12) |
-| `year` | number | Year e.g. `2024` |
-| `studentId` | string | Filter by student (optional) |
-| `format` | string | `json`, `csv`, `pdf` |
-
-**Response `200` (json):**
-```json
-{
-  "month": 1,
-  "year": 2024,
-  "generatedAt": "2024-01-31T18:00:00.000Z",
-  "totalStudents": 500,
-  "totalDays": 22,
-  "summary": {
-    "present": 9500,
-    "absent": 800,
-    "late": 1200,
-    "onTime": 8300,
-    "pending": 0
-  },
-  "studentBreakdown": [
-    {
-      "studentId": "uuid",
-      "studentCode": "CS2024001",
-      "name": "John Doe",
-      "attendance": 18,
-      "absent": 2,
-      "late": 2,
-      "attendancePercentage": 82
-    }
-  ]
-}
-```
-
----
-
-### GET `/admin/reports/yearly`
-Generate a yearly attendance report. Monthly breakdown is sourced from `DailyStats`.
-
-**Access:** Protected `[A]`
-
-**Query Params:**
-
-| Param | Type | Description |
-|-------|------|-------------|
-| `year` | number | Year e.g. `2024` |
-| `studentId` | string | Filter by student (optional) |
-| `format` | string | `json`, `csv`, `pdf` |
-
-**Response `200` (json):**
-```json
-{
-  "year": 2024,
-  "generatedAt": "2024-12-31T23:59:59.000Z",
-  "totalStudents": 500,
-  "totalDays": 250,
-  "summary": {
-    "present": 115000,
-    "absent": 9800,
-    "late": 10200,
-    "onTime": 105000,
-    "pending": 0
-  },
-  "monthlyBreakdown": [
-    {
-      "month": 1,
-      "totalDays": 22,
-      "presentCount": 9500,
-      "absentCount": 800,
-      "lateCount": 1200,
-      "attendancePercentage": 82.5
-    }
-  ],
-  "studentBreakdown": [
-    {
-      "studentId": "uuid",
-      "studentCode": "CS2024001",
-      "name": "John Doe",
-      "totalAttendance": 210,
-      "totalAbsent": 30,
-      "totalLate": 10,
-      "attendancePercentage": 87.5
-    }
-  ]
-}
-```
-
----
-
-### GET `/admin/reports/jobs/:jobId`
-Poll the status of an async report generation job.
-
-**Access:** Protected `[A]`
-
-**Response `200`:**
-```json
-{
-  "id": "uuid",
-  "status": "DONE",
-  "format": "pdf",
-  "downloadUrl": "https://storage.example.com/reports/report-uuid.pdf",
-  "createdAt": "2024-01-15T18:00:00.000Z",
-  "updatedAt": "2024-01-15T18:00:45.000Z"
-}
-```
-
-> `status` maps to the `ReportJobStatus` enum: `PROCESSING`, `DONE`, `FAILED`.
-
----
-
-## 9. Notifications
-
-### GET `/notifications`
-Get all `Notification` records for the current user.
-
-**Access:** Protected `[S/A]`
-
-**Query Params:**
-
-| Param | Type | Description |
-|-------|------|-------------|
-| `unreadOnly` | boolean | Return only unread (default: false) |
-| `page` | number | Page number |
-| `limit` | number | Records per page |
-
-**Response `200`:**
-```json
-{
-  "data": [
-    {
-      "id": "uuid",
-      "type": "LATE_ALERT",
-      "title": "Late Check-In",
-      "body": "You checked in 20 minutes late today.",
-      "read": false,
-      "createdAt": "2024-01-15T09:25:00.000Z"
-    }
-  ],
-  "unreadCount": 3,
-  "pagination": {
-    "page": 1,
-    "limit": 20,
-    "total": 15
-  }
-}
-```
-
-> All notifications are stored in the DB first, then delivered via FCM asynchronously. Delivery is not guaranteed within the same request lifecycle.
-
----
-
-### PATCH `/notifications/:notificationId/read`
-Mark a single notification as read (`read: true`).
-
-**Access:** Protected `[S/A]`
-
-**Response `200`:**
-```json
-{
-  "message": "Notification marked as read"
-}
-```
-
----
-
-### PATCH `/notifications/read-all`
-Mark all notifications as read for the current user.
-
-**Access:** Protected `[S/A]`
-
-**Response `200`:**
-```json
-{
-  "message": "All notifications marked as read"
-}
-```
-
----
-
-### POST `/admin/notifications/send`
-Send a manual push notification to students. Stored in the `Notification` table and delivered asynchronously via FCM.
-
-**Access:** Protected `[A]`
-
-**Request Body:**
-```json
-{
-  "title": "Campus Closed Tomorrow",
-  "body": "No attendance required tomorrow due to holiday.",
-  "targetRole": "STUDENT",
-  "targetStudentIds": null
-}
-```
-
-> Either specify `targetRole` (e.g., `STUDENT`, `ADMIN`) or provide a list of `targetStudentIds`. If both are `null`, the notification is sent to all users.
-
-**Response `201`:**
-```json
-{
-  "message": "Notification sent successfully",
-  "notificationId": "uuid",
-  "recipientCount": 500,
-  "sentAt": "2024-01-15T10:00:00.000Z"
-}
-```
-
----
-
-## 10. Fraud Logs
-
-### GET `/admin/fraud-logs`
-Get all `FraudLog` records.
-
-**Access:** Protected `[A]`
-
-**Query Params:**
-
-| Param | Type | Description |
-|-------|------|-------------|
-| `studentId` | string | Filter by student |
-| `riskLevel` | string | `LOW`, `MEDIUM`, `HIGH` |
-| `from` | string | Start date |
-| `to` | string | End date |
-| `page` | number | Page number |
-| `limit` | number | Records per page |
-
-**Response `200`:**
-```json
-{
-  "data": [
-    {
-      "id": "uuid",
-      "student": {
-        "id": "uuid",
-        "name": "John Doe",
-        "studentCode": "CS2024001"
-      },
-      "type": "IMPOSSIBLE_VELOCITY",
-      "riskLevel": "HIGH",
-      "details": {
-        "speedKmh": 320,
-        "fromLat": 19.0760,
-        "fromLng": 72.8777,
-        "toLat": 19.1200,
-        "toLng": 72.9000,
-        "intervalSeconds": 5
-      },
-      "createdAt": "2024-01-15T09:10:00.000Z"
-    }
-  ],
-  "pagination": {
-    "page": 1,
-    "limit": 50,
-    "total": 12
-  }
-}
-```
-
-> Fraud detection runs asynchronously after each check-in/check-out event. Each event contributes to a cumulative fraud score. If the score exceeds a configurable threshold, alerts are triggered and optional account restrictions can be applied.
-
----
-
-### GET `/admin/fraud-logs/:studentId`
-Get fraud logs for a specific student.
-
-**Access:** Protected `[A]`
-
-**Response `200`:** Same shape as above, filtered to one student.
-
----
-
-## 11. System Configuration
-
-### GET `/admin/config`
-Get current system configuration (geofence defaults and working hour defaults).
-
-**Access:** Protected `[A]`
-
-**Response `200`:**
-```json
-{
-  "defaultRadiusMeters": 100,
-  "defaultMinDurationHours": 6,
-  "defaultLateThresholdMins": 15
-}
-```
-
----
-
-### PATCH `/admin/config/working-hours/:locationId`
-Update the `WorkingHours` record for a location.
-
-**Access:** Protected `[A]`
-
-**Request Body:** (all optional)
-```json
-{
-  "startTime": "09:00",
-  "endTime": "17:00",
-  "lateThresholdMins": 15,
-  "minDurationHours": 6
-}
-```
-
-**Response `200`:**
-```json
-{
-  "locationId": "uuid",
-  "startTime": "09:00",
-  "endTime": "17:00",
-  "lateThresholdMins": 15,
-  "minDurationHours": 6
-}
-```
-
----
-
-## 12. System Design Enhancements
-
-### Idempotency
-
-Supported on `POST /attendance/checkin` and `POST /attendance/checkout` via the `Idempotency-Key` request header. Records are persisted in the `IdempotencyRecord` model, keyed by `(key, userId)`. A repeated request with the same key returns the original stored response, preventing duplicate attendance entries due to network retries.
+- Only active when the `Idempotency-Key` request header is present.
+- Stores a hash of the request body keyed by `(key, userId)`.
+- Replays the stored successful response for a duplicate identical request.
+- Returns `400` if the same key is reused with a different request payload.
+- Returns `409` if a request with the same key is still in-flight.
+- Deletes failed idempotency records so failed requests can be retried cleanly.
 
 ```http
 Idempotency-Key: <unique-request-id>
@@ -1460,179 +726,79 @@ Idempotency-Key: <unique-request-id>
 
 ---
 
-### Background Job Processing
+## 7. Error Responses
 
-Heavy operations are enqueued asynchronously using **Redis + BullMQ** so the API returns instantly:
-
-| Job | Trigger |
-|-----|---------|
-| Fraud detection | After check-in / check-out |
-| FCM notification delivery | After notification record is created |
-| `DailyStats` update | After check-out |
-| Midnight auto-close (absent marking) | Cron at 00:00 |
-| CSV / PDF report generation | On `GET /admin/reports/*` with `format=csv\|pdf` |
-
----
-
-### Caching Layer
-
-Redis is used to cache high-frequency read endpoints:
-
-| Endpoint | Cache TTL |
-|----------|-----------|
-| `GET /geofence/locations` | 5–10 min |
-| `GET /student/dashboard` | 30–60 sec |
-| `GET /admin/dashboard` | 30–60 sec |
-
----
-
-### Eventual Consistency for Analytics
-
-Dashboard and report endpoints use precomputed `DailyStats` aggregates rather than live `COUNT` queries. Stats are updated event-driven on check-out and reconciled nightly by cron. This makes dashboard reads O(1).
-
----
-
-### Concurrency Control
-
-Critical write operations (`checkin`, `checkout`) use DB transactions with row-level locking to prevent race conditions:
-
-```sql
-BEGIN;
-SELECT * FROM attendance_logs WHERE studentId=? AND date=? FOR UPDATE;
--- insert or update
-COMMIT;
-```
-
----
-
-### Geofence Accuracy Validation
-
-The optional `accuracyMeters` field on check-in/check-out requests carries the GPS accuracy reported by the device. Requests where accuracy exceeds a configurable threshold are rejected to prevent location spoofing. Stored in `checkInAccuracyM` / `checkOutAccuracyM` on `AttendanceLog`.
-
----
-
-### Device Management
-
-Each student session is bound to a single `deviceId` (stored on `User` and `Session`). The architecture is forward-compatible with multi-device support — future versions will track sessions per device and replace hard blocking with fraud scoring.
-
----
-
-### Fraud Detection Scoring
-
-Each fraud event type contributes a score:
-
-| Type | Score Contribution |
-|------|--------------------|
-| `IMPOSSIBLE_VELOCITY` | +50 |
-| `LOCATION_JUMP` | +20 |
-| `DISTANCE_ANOMALY` | +10 |
-| `TIME_ANOMALY` | +15 |
-| `DUPLICATE_CHECKIN` | +5 |
-
-If the cumulative score exceeds a configurable threshold, alerts are triggered and optional account restrictions are applied.
-
----
-
-### Soft Deletes
-
-`deletedAt DateTime?` is present on `User`, `Location`, and `AttendanceLog`. All list and read queries filter `WHERE deletedAt IS NULL`. This prevents permanent data loss and maintains GDPR compliance.
-
----
-
-### Observability
-
-- **Metrics:** Prometheus
-- **Dashboards:** Grafana
-- **Logs:** API requests, errors, fraud events
-
----
-
-## 13. Error Responses
-
-All errors follow a consistent shape:
+Error response shapes are not yet fully standardised across all controllers. The following shapes currently exist in the codebase:
 
 ```json
-{
-  "error": "ERROR_CODE",
-  "message": "Human readable description",
-  "statusCode": 400
-}
+{ "error": "UNAUTHORIZED", "message": "No token provided" }
+```
+```json
+{ "error": "Validation error", "details": [] }
+```
+```json
+{ "error": "OUTSIDE_GEOFENCE" }
+```
+```json
+{ "error": "LOW_GPS_ACCURACY", "message": "Device GPS accuracy is too low; location is untrustworthy", "statusCode": 400 }
 ```
 
 ### Common Error Codes
 
 | HTTP | Error Code | Description |
-|------|-----------|-------------|
-| 400 | `VALIDATION_ERROR` | Request body/params failed validation |
-| 400 | `ALREADY_CHECKED_IN` | Student already has a check-in for today |
-| 400 | `NO_ACTIVE_CHECKIN` | Checkout attempted with no check-in found |
-| 400 | `STALE_TIMESTAMP` | Timestamp older than 30 seconds (replay attack) |
-| 400 | `LOW_GPS_ACCURACY` | Device GPS accuracy too low; location untrustworthy |
+|---|---|---|
+| 400 | `VALIDATION_ERROR` | Request body or params failed Zod validation |
+| 400 | `STALE_TIMESTAMP` | Timestamp is older than 30 seconds (replay protection) |
+| 400 | `LOW_GPS_ACCURACY` | Device GPS accuracy exceeds the 100 m threshold |
+| 400 | `ALREADY_CHECKED_IN` | A check-in already exists for today |
 | 401 | `UNAUTHORIZED` | Missing or invalid access token |
-| 401 | `TOKEN_EXPIRED` | Access token has expired |
-| 401 | `INVALID_REFRESH_TOKEN` | Refresh token invalid or revoked |
-| 401 | `DEVICE_MISMATCH` | Check-in attempted from a different device than login |
 | 401 | `ACCOUNT_SUSPENDED` | User account has been suspended |
+| 401 | `INVALID_REFRESH_TOKEN` | Refresh token is invalid or expired |
 | 403 | `FORBIDDEN` | Insufficient role permissions |
-| 403 | `OUTSIDE_GEOFENCE` | Location outside allowed radius |
+| 403 | `OUTSIDE_GEOFENCE` | Coordinates are outside the allowed radius |
 | 404 | `NOT_FOUND` | Resource not found |
 | 404 | `LOCATION_NOT_FOUND` | The specified location does not exist |
 | 409 | `DUPLICATE_ATTENDANCE` | Attendance record already exists for this date |
-| 409 | `DUPLICATE_STUDENT` | Email or studentCode already in use |
-| 429 | `RATE_LIMITED` | Too many requests (3 requests/min per student) |
 | 500 | `INTERNAL_ERROR` | Unexpected server error |
+
+---
+
+## 8. Not Yet Implemented
+
+The following endpoints are referenced in tests or the API specification but are not mounted in the current backend.
+
+| Method | Path | Notes |
+|---|---|---|
+| POST | `/admin/students` | Test allows 404/501 |
+| PATCH | `/admin/students/:id/status` | Test allows 404/501 |
+| GET | `/student/dashboard` | Route group not mounted |
+| GET | `/notifications` | Route group not mounted |
+| PATCH | `/notifications/:id/read` | Route group not mounted |
+| GET | `/fraud` | Route group not mounted |
+| POST | `/geofence/locations` | Test allows 404 |
+| PUT | `/geofence/locations/:id` | Test allows 404 |
+| DELETE | `/geofence/locations/:id` | Test allows 404 |
+
+Additional capabilities planned in the full specification but not yet present:
+
+- Admin dashboard aggregates (`GET /admin/dashboard`)
+- Admin location management (`POST /admin/locations`, `PATCH`, `DELETE`)
+- Student management (`POST /admin/students`, `PATCH /admin/students/:id/status`, bulk import)
+- Notifications (`GET /notifications`, `PATCH /notifications/:id/read`, admin send)
+- Fraud logs (`GET /admin/fraud-logs`)
+- Reports and export (`GET /admin/reports/daily|monthly|yearly`)
+- System configuration (`GET /admin/config`, `PATCH /admin/config/working-hours/:locationId`)
+- Redis caching on geofence and dashboard endpoints
+- BullMQ background jobs (fraud detection, FCM delivery, daily stats, auto-close cron)
+- Rate limiting on attendance endpoints (limiter is declared but not applied)
+- Device mismatch enforcement during check-in/check-out
 
 ---
 
 ## Notes
 
-- All timestamps are **ISO 8601 UTC** format.
-- All IDs are **UUIDs v4** (`@id @default(uuid())`).
-- Attendance check-in requests include a signed `timestamp` — requests older than **30 seconds** are rejected to prevent replay attacks.
-- Geofence validation is **always server-side** — client-side pre-checks are UX only.
-- Rate limiting: **3 requests/min per student** on attendance endpoints.
-- Report exports (`csv`, `pdf`) are processed asynchronously and returned as file downloads via `ReportJob`.
-
-### Device Binding & Security
-
-- **Single-device lock:** Each student's session is bound to one `deviceId` (stored on `User.deviceId` and `Session.deviceId`). Logging in from a different device invalidates the previous `Session` record.
-- **DEVICE_MISMATCH error:** If a check-in request comes from a different device than the one used for login, it is rejected.
-- **Future:** Multi-device support with per-device `Session` tracking and fraud scoring instead of hard blocking.
-
-### Auto-Close & Absent Record Creation
-
-- **Auto-close:** Every night at midnight, a background worker (BullMQ cron job) closes all `PENDING` attendance records.
-  - Records with no check-out are marked `ABSENT`.
-  - A `Notification` record is created and pushed to the student.
-- **Absent records:** If a student never checks in on a given day, an `ABSENT` record is inserted at midnight.
-- **`isAutoClosed` flag:** `true` if the record was closed by the system, `false` if closed by the student.
-
-### Token Expiry & Rotation
-
-- **Access Token TTL:** 15 minutes
-- **Refresh Token TTL:** 7 days (stored in `Session.expiresAt`)
-- **Token Rotation:** `Session.refreshToken` is single-use. On every refresh the old token is invalidated and a new one issued. Reusing a revoked token triggers invalidation of all sessions for the device.
-
-### Account Suspension & GDPR Compliance
-
-- Use `PATCH /admin/students/:studentId/status` to toggle `User.status` between `ACTIVE` and `SUSPENDED`.
-- Suspended accounts retain all `AttendanceLog`, `FraudLog`, and `Notification` records.
-- For full account deletion, a separate GDPR data export and anonymisation process is required (not yet documented).
-
-### Fraud Detection Types
-
-| Type | Description | Risk Level |
-|------|-------------|-----------|
-| `DISTANCE_ANOMALY` | Check-in location is unusually far from the location centre. | MEDIUM |
-| `LOCATION_JUMP` | Student moved between two locations impossibly fast. | HIGH |
-| `IMPOSSIBLE_VELOCITY` | Calculated travel speed exceeds plausible human velocity (>500 km/h). | HIGH |
-| `DUPLICATE_CHECKIN` | Multiple check-ins reported for the same student on the same date. | LOW |
-| `TIME_ANOMALY` | Check-out time is before check-in time (clock rewind). | MEDIUM |
-
-### Response Field Conventions
-
-- **Top-level resources** include `createdAt` and `updatedAt` in all responses, except lightweight auth responses.
-- **Sensitive fields** (`passwordHash`, `fcmToken`, `deviceId`) are never returned except in `GET /auth/me`.
-- **Nested objects** (e.g., `workingHours` inside Location) omit internal fields (`id`, `locationId`, `createdAt`, `updatedAt`).
-- **Soft-deleted records** are never returned in list or detail responses.
-- All timestamps are **ISO 8601 UTC** format.
+- All timestamps are **ISO 8601 UTC**.
+- All IDs are **UUID v4**.
+- Geofence validation is **always server-side** — client pre-checks are UX only.
+- Soft-deleted records (`deletedAt IS NOT NULL`) are excluded from all list and detail responses.
+- **Access Token TTL:** 15 minutes · **Refresh Token TTL:** 7 days

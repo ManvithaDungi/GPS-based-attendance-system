@@ -1,0 +1,821 @@
+{
+  "info": {
+    "_postman_id": "indazone-api-collection",
+    "name": "InDaZone API",
+    "description": "Complete API test collection for InDaZone GPS-based attendance system",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Admin User\",\n  \"email\": \"admin@example.com\",\n  \"password\": \"securepassword\",\n  \"role\": \"ADMIN\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"securepassword\",\n  \"deviceId\": \"device-123-abc\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refresh_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/refresh",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "refresh"]
+            }
+          }
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "me"]
+            }
+          }
+        },
+        {
+          "name": "Update FCM Token",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fcmToken\": \"fcm-token-abc123xyz\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/me/fcm-token",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "me", "fcm-token"]
+            }
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"securepassword\",\n  \"newPassword\": \"newsecurepassword123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/me/password",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "me", "password"]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refresh_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "logout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Locations",
+      "item": [
+        {
+          "name": "Create Location",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"College Campus\",\n  \"latitude\": 19.0760,\n  \"longitude\": 72.8777,\n  \"radiusMeters\": 100,\n  \"workingHours\": {\n    \"startTime\": \"09:00\",\n    \"endTime\": \"17:00\",\n    \"lateThresholdMins\": 15,\n    \"minDurationHours\": 6\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/locations",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "locations"]
+            }
+          }
+        },
+        {
+          "name": "Get All Locations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/locations",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "locations"]
+            }
+          }
+        },
+        {
+          "name": "Update Location",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Main Campus\",\n  \"radiusMeters\": 150,\n  \"workingHours\": {\n    \"startTime\": \"08:30\",\n    \"lateThresholdMins\": 10\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/locations/{{location_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "locations", "{{location_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete Location",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/locations/{{location_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "locations", "{{location_id}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Students",
+      "item": [
+        {
+          "name": "Create Student",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Jane Smith\",\n  \"email\": \"jane@example.com\",\n  \"password\": \"tempPassword123\",\n  \"studentCode\": \"CS2024002\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/students",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "students"]
+            }
+          }
+        },
+        {
+          "name": "Get All Students",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/students?page=1&limit=50&search=",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "students"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "search",
+                  "value": ""
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Student Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/students/{{student_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "students", "{{student_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Update Student Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"SUSPENDED\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/students/{{student_id}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "students", "{{student_id}}", "status"]
+            }
+          }
+        },
+        {
+          "name": "Reset Student Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"temporaryPassword\": \"tempPass123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/students/{{student_id}}/reset-password",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "students", "{{student_id}}", "reset-password"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Attendance",
+      "item": [
+        {
+          "name": "Check In",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "checkin-{{$timestamp}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lat\": 19.0760,\n  \"lng\": 72.8777,\n  \"timestamp\": \"2026-05-01T09:05:00.000Z\",\n  \"locationId\": \"{{location_id}}\",\n  \"accuracyMeters\": 10\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/attendance/checkin",
+              "host": ["{{base_url}}"],
+              "path": ["attendance", "checkin"]
+            }
+          }
+        },
+        {
+          "name": "Check Out",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "checkout-{{$timestamp}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lat\": 19.0762,\n  \"lng\": 72.8779,\n  \"timestamp\": \"2026-05-01T15:30:00.000Z\",\n  \"locationId\": \"{{location_id}}\",\n  \"accuracyMeters\": 12\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/attendance/checkout",
+              "host": ["{{base_url}}"],
+              "path": ["attendance", "checkout"]
+            }
+          }
+        },
+        {
+          "name": "Get Today's Attendance",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance/today",
+              "host": ["{{base_url}}"],
+              "path": ["attendance", "today"]
+            }
+          }
+        },
+        {
+          "name": "Get Attendance History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance/history?page=1&limit=30",
+              "host": ["{{base_url}}"],
+              "path": ["attendance", "history"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "30"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Attendance Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance/summary",
+              "host": ["{{base_url}}"],
+              "path": ["attendance", "summary"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Geofence",
+      "item": [
+        {
+          "name": "Validate Geofence",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/geofence/validate?lat=19.0760&lng=72.8777&locationId={{location_id}}&accuracyMeters=10",
+              "host": ["{{base_url}}"],
+              "path": ["geofence", "validate"],
+              "query": [
+                {
+                  "key": "lat",
+                  "value": "19.0760"
+                },
+                {
+                  "key": "lng",
+                  "value": "72.8777"
+                },
+                {
+                  "key": "locationId",
+                  "value": "{{location_id}}"
+                },
+                {
+                  "key": "accuracyMeters",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get All Locations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/geofence/locations",
+              "host": ["{{base_url}}"],
+              "path": ["geofence", "locations"]
+            }
+          }
+        },
+        {
+          "name": "Get Location Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/geofence/locations/{{location_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["geofence", "locations", "{{location_id}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dashboards",
+      "item": [
+        {
+          "name": "Student Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/student/dashboard",
+              "host": ["{{base_url}}"],
+              "path": ["student", "dashboard"]
+            }
+          }
+        },
+        {
+          "name": "Admin Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/dashboard",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "dashboard"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reports",
+      "item": [
+        {
+          "name": "Daily Report",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/reports/daily?format=json",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "reports", "daily"],
+              "query": [
+                {
+                  "key": "format",
+                  "value": "json"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Monthly Report",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/reports/monthly?month=5&year=2026&format=json",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "reports", "monthly"],
+              "query": [
+                {
+                  "key": "month",
+                  "value": "5"
+                },
+                {
+                  "key": "year",
+                  "value": "2026"
+                },
+                {
+                  "key": "format",
+                  "value": "json"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Yearly Report",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/reports/yearly?year=2026&format=json",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "reports", "yearly"],
+              "query": [
+                {
+                  "key": "year",
+                  "value": "2026"
+                },
+                {
+                  "key": "format",
+                  "value": "json"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "Get Notifications",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/notifications?page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["notifications"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Send Notification",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Campus Closed Tomorrow\",\n  \"body\": \"No attendance required tomorrow due to holiday.\",\n  \"targetRole\": \"STUDENT\",\n  \"targetStudentIds\": null\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/notifications/send",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "notifications", "send"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Fraud Logs",
+      "item": [
+        {
+          "name": "Get All Fraud Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/fraud-logs?page=1&limit=50",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "fraud-logs"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000/api/v1"
+    },
+    {
+      "key": "access_token",
+      "value": ""
+    },
+    {
+      "key": "refresh_token",
+      "value": ""
+    },
+    {
+      "key": "location_id",
+      "value": ""
+    },
+    {
+      "key": "student_id",
+      "value": ""
+    }
+  ]
+}

@@ -29,10 +29,10 @@ const limiter = rateLimit({
 // app.use(limiter);
 
 // Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/attendance', attendanceRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/geofence', geofenceRoutes);
+app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/attendance', attendanceRoutes);
+app.use('/api/v1/admin', adminRoutes);
+app.use('/api/v1/geofence', geofenceRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
