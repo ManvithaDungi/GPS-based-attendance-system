@@ -37,7 +37,9 @@ RUN npm ci --only=production
 # Copy built application from builder
 COPY --from=builder /build/dist ./dist
 COPY --from=builder /build/prisma ./prisma
-COPY apps/backend/.env .env
+
+# Environment variables are injected at runtime (docker-compose, Render, etc.)
+# Never bake .env into the image
 
 # Generate Prisma client
 RUN npx prisma generate
@@ -46,10 +48,11 @@ RUN npx prisma generate
 EXPOSE 3000
 
 # Health check
-# TODO: Add proper health check command
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+  CMD node -e "fetch('http://localhost:3000/health').then(r => { if (!r.ok) process.exit(1) })" || exit 1
 
 # Use dumb-init to handle signals properly
 ENTRYPOINT ["dumb-init", "--"]
 
-# Start the application
-CMD ["node", "dist/server.js"]
+# Run migrations then start the server
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]
