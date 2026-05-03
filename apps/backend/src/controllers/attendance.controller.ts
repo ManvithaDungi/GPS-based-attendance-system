@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 import * as attendanceService from '../services/attendance.service';
 import { AttendanceStatus, PunctualityStatus } from '@prisma/client';
+import { emitCheckIn, emitCheckOut } from '../queues/emitter';
 
 const checkInSchema = z.object({
   lat: z.number(),
@@ -162,6 +163,18 @@ export const checkIn = async (req: Request, res: Response): Promise<Response> =>
       timestamp: reqTimestamp,
     });
 
+    // Emit async event for fraud detection and notifications (never blocks response)
+    emitCheckIn({
+      logId: log.id,
+      studentId: req.user!.id,
+      locationId: data.locationId,
+      latitude: data.lat,
+      longitude: data.lng,
+      distanceM: log.checkInDistanceM ?? 0,
+      accuracyMeters: data.accuracyMeters,
+      timestamp: data.timestamp,
+    });
+
     return res.status(200).json({
       message: 'Check-in successful',
       attendance: formatCheckInAttendance(log),
@@ -214,6 +227,21 @@ export const checkOut = async (req: Request, res: Response): Promise<Response> =
       longitude: data.lng,
       accuracyMeters: data.accuracyMeters,
       timestamp: reqTimestamp,
+    });
+
+    // Emit async event for fraud detection, stats update, and notifications
+    emitCheckOut({
+      logId: log.id,
+      studentId: req.user!.id,
+      locationId: data.locationId,
+      latitude: data.lat,
+      longitude: data.lng,
+      distanceM: log.checkOutDistanceM ?? 0,
+      accuracyMeters: data.accuracyMeters,
+      durationHours: log.durationHours ?? 0,
+      status: log.status,
+      punctuality: log.punctuality,
+      timestamp: data.timestamp,
     });
 
     return res.status(200).json({

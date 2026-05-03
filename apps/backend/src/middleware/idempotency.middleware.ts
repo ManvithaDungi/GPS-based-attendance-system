@@ -1,7 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
-import { Prisma } from '@prisma/client';
-import { prisma } from '../utils/prisma';
+import { getRedisClient } from '../utils/redis';
+
+const IDEMPOTENCY_TTL = 86400; // 24 hours in seconds
+const KEY_PREFIX = 'idempotency:';
 
 export const idempotencyMiddleware = async (req: Request, res: Response, next: NextFunction): Promise<void | Response> => {
   if (req.method !== 'POST' && req.method !== 'PUT' && req.method !== 'PATCH') {
@@ -21,57 +23,42 @@ export const idempotencyMiddleware = async (req: Request, res: Response, next: N
   const endpoint = req.originalUrl;
   const requestBodyStr = JSON.stringify(req.body);
   const requestHash = crypto.createHash('sha256').update(requestBodyStr).digest('hex');
+  const redisKey = `${KEY_PREFIX}${userId}:${idempotencyKey}`;
 
   try {
-    const existingRecord = await prisma.idempotencyRecord.findUnique({
-      where: {
-        key_userId: {
-          key: idempotencyKey,
-          userId,
-        },
-      },
-    });
+    const redis = getRedisClient();
+    const existing = await redis.hgetall(redisKey);
 
-    if (existingRecord) {
-      if (existingRecord.requestHash !== requestHash) {
+    if (existing && Object.keys(existing).length > 0) {
+      if (existing.requestHash !== requestHash) {
         return res.status(400).json({ error: 'Idempotency key reused with different payload' });
       }
 
-      if (existingRecord.responseData) {
-        return res.status(200).json(existingRecord.responseData);
+      if (existing.responseData) {
+        return res.status(200).json(JSON.parse(existing.responseData));
       }
       
       // If it exists but has no response, it means it's currently processing
       return res.status(409).json({ error: 'Request is already being processed' });
     }
 
-    await prisma.idempotencyRecord.create({
-      data: {
-        key: idempotencyKey,
-        userId,
-        endpoint,
-        requestHash,
-      },
+    // Create new in-flight record
+    await redis.hset(redisKey, {
+      requestHash,
+      endpoint,
     });
+    await redis.expire(redisKey, IDEMPOTENCY_TTL);
 
     // Intercept response to save responseData
     const originalJson = res.json.bind(res);
     res.json = (body?: unknown): Response => {
       // Execute asynchronously so we don't block the response
       if (res.statusCode >= 200 && res.statusCode < 300) {
-         prisma.idempotencyRecord.update({
-           where: {
-             key_userId: { key: idempotencyKey, userId },
-           },
-           data: { responseData: body as Prisma.InputJsonValue },
-         }).catch((err) => console.error('Failed to update idempotency record', err));
+        redis.hset(redisKey, 'responseData', JSON.stringify(body))
+          .catch((err) => console.error('Failed to update idempotency record', err));
       } else {
-         // Optionally delete the record if it failed so it can be retried
-         prisma.idempotencyRecord.delete({
-           where: {
-             key_userId: { key: idempotencyKey, userId },
-           }
-         }).catch(() => {});
+        // Delete the record if it failed so it can be retried
+        redis.del(redisKey).catch(() => {});
       }
       return originalJson(body);
     };

@@ -4,6 +4,7 @@
 
 import { calculateHaversineDistance, isWithinGeofence } from '../utils/haversine';
 import { prisma } from '../utils/prisma';
+import { invalidateLocationCache } from '../cache/geofence.cache';
 
 interface GeofenceCheckParams {
   userLat: number;
@@ -163,7 +164,7 @@ export const updateLocation = async (
   const existing = await prisma.location.findFirst({ where: { id: locationId, deletedAt: null } });
   if (!existing) throw new Error('LOCATION_NOT_FOUND');
 
-  return prisma.location.update({
+  const result = await prisma.location.update({
     where: { id: locationId },
     data: {
       ...(data.name !== undefined && { name: data.name }),
@@ -178,6 +179,9 @@ export const updateLocation = async (
     },
     select: locationWithWorkingHoursSelect,
   });
+
+  await invalidateLocationCache(locationId);
+  return result;
 };
 
 export const softDeleteLocation = async (locationId: string) => {
@@ -188,6 +192,8 @@ export const softDeleteLocation = async (locationId: string) => {
     where: { id: locationId },
     data: { deletedAt: new Date() },
   });
+
+  await invalidateLocationCache(locationId);
 };
 
 /**

@@ -76,8 +76,19 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/gps_attendance_test
+      REDIS_URL: redis://localhost:6379
       JWT_SECRET: ci-test-jwt-secret
       REFRESH_SECRET: ci-test-refresh-secret
       NODE_ENV: test

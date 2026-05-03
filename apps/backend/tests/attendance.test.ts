@@ -1,6 +1,7 @@
 import request from 'supertest';
 import app from '../src/app';
 import { prisma } from '../src/utils/prisma';
+import { getRedisClient } from '../src/utils/redis';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import { cleanDatabase } from './helpers/database';
@@ -66,21 +67,21 @@ const timeStringMinutesFromNow = (offsetMinutes: number) => {
 const requestHash = (body: unknown) => crypto.createHash('sha256').update(JSON.stringify(body)).digest('hex');
 
 const waitForIdempotencyResponse = async (key: string, userId: string) => {
+  const redis = getRedisClient();
+  const redisKey = `idempotency:${userId}:${key}`;
   for (let attempt = 0; attempt < 10; attempt += 1) {
-    const record = await prisma.idempotencyRecord.findUnique({
-      where: { key_userId: { key, userId } },
-    });
-    if (record?.responseData) return;
+    const data = await redis.hget(redisKey, 'responseData');
+    if (data) return;
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
 };
 
 const waitForIdempotencyDeletion = async (key: string, userId: string) => {
+  const redis = getRedisClient();
+  const redisKey = `idempotency:${userId}:${key}`;
   for (let attempt = 0; attempt < 10; attempt += 1) {
-    const record = await prisma.idempotencyRecord.findUnique({
-      where: { key_userId: { key, userId } },
-    });
-    if (!record) return;
+    const exists = await redis.exists(redisKey);
+    if (!exists) return;
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
 };
@@ -543,14 +544,12 @@ describe('Attendance APIs', () => {
         locationId: loc.id,
         accuracyMeters: 10,
       };
-      await prisma.idempotencyRecord.create({
-        data: {
-          key,
-          userId: user.id,
-          endpoint: '/api/v1/attendance/checkin',
-          requestHash: requestHash(body),
-        },
+      const redis = getRedisClient();
+      await redis.hset(`idempotency:${user.id}:${key}`, {
+        requestHash: requestHash(body),
+        endpoint: '/api/v1/attendance/checkin',
       });
+      await redis.expire(`idempotency:${user.id}:${key}`, 86400);
 
       const res = await request(app)
         .post('/api/v1/attendance/checkin')

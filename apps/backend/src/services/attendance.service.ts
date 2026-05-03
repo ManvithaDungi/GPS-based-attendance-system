@@ -1,6 +1,7 @@
 import { prisma } from '../utils/prisma';
 import { calculateHaversineDistance } from '../utils/haversine';
 import { AttendanceStatus, Prisma, PunctualityStatus } from '@prisma/client';
+import { getCachedLocation } from '../cache/geofence.cache';
 
 export class AttendanceServiceError extends Error {
   constructor(
@@ -38,7 +39,7 @@ export const recordCheckIn = async ({
   accuracyMeters,
   timestamp,
 }: CheckInParams) => {
-  const location = await prisma.location.findFirst({ where: { id: locationId, deletedAt: null } });
+  const location = await getCachedLocation(locationId);
   if (!location) throw new AttendanceServiceError('LOCATION_NOT_FOUND');
 
   const distance = calculateHaversineDistance(latitude, longitude, location.latitude, location.longitude);
@@ -91,11 +92,7 @@ export const recordCheckOut = async ({
   if (!log) throw new AttendanceServiceError('NOT_CHECKED_IN');
   if (log.checkOutTime) throw new AttendanceServiceError('ALREADY_CHECKED_OUT');
 
-  const location = await prisma.location.findFirst({
-    where: { id: locationId, deletedAt: null },
-    include: { workingHours: true }
-  });
-
+  const location = await getCachedLocation(locationId);
   if (!location) throw new AttendanceServiceError('LOCATION_NOT_FOUND');
 
   const distance = calculateHaversineDistance(latitude, longitude, location.latitude, location.longitude);
