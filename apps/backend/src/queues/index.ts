@@ -1,51 +1,67 @@
 import { Queue } from 'bullmq';
 import { createRedisConnection } from '../utils/redis';
 
-/**
- * Queue for attendance-related events (check-in, check-out).
- * Consumed by: fraud worker, stats worker, notification worker.
- */
-export const attendanceEventsQueue = new Queue('attendance-events', {
-  connection: createRedisConnection(),
-  defaultJobOptions: {
-    attempts: 3,
-    backoff: { type: 'exponential', delay: 1000 },
-    removeOnComplete: 100,
-    removeOnFail: 500,
-  },
-});
+let _attendanceEventsQueue: Queue | null = null;
+let _notificationsQueue: Queue | null = null;
+let _scheduledJobsQueue: Queue | null = null;
 
 /**
- * Queue for notification delivery (FCM/APNs push).
+ * Lazy-initialized queues. Only connect to Redis when first accessed.
+ * Returns null if Redis is not configured (REDIS_URL not set).
  */
-export const notificationsQueue = new Queue('notifications', {
-  connection: createRedisConnection(),
-  defaultJobOptions: {
-    attempts: 5,
-    backoff: { type: 'exponential', delay: 2000 },
-    removeOnComplete: 100,
-    removeOnFail: 1000,
-  },
-});
+export const getAttendanceEventsQueue = (): Queue | null => {
+  if (!process.env.REDIS_URL) return null;
+  if (!_attendanceEventsQueue) {
+    _attendanceEventsQueue = new Queue('attendance-events', {
+      connection: createRedisConnection(),
+      defaultJobOptions: {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 1000 },
+        removeOnComplete: 100,
+        removeOnFail: 500,
+      },
+    });
+  }
+  return _attendanceEventsQueue;
+};
+
+export const getNotificationsQueue = (): Queue | null => {
+  if (!process.env.REDIS_URL) return null;
+  if (!_notificationsQueue) {
+    _notificationsQueue = new Queue('notifications', {
+      connection: createRedisConnection(),
+      defaultJobOptions: {
+        attempts: 5,
+        backoff: { type: 'exponential', delay: 2000 },
+        removeOnComplete: 100,
+        removeOnFail: 1000,
+      },
+    });
+  }
+  return _notificationsQueue;
+};
+
+export const getScheduledJobsQueue = (): Queue | null => {
+  if (!process.env.REDIS_URL) return null;
+  if (!_scheduledJobsQueue) {
+    _scheduledJobsQueue = new Queue('scheduled-jobs', {
+      connection: createRedisConnection(),
+      defaultJobOptions: {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 5000 },
+        removeOnComplete: 50,
+        removeOnFail: 200,
+      },
+    });
+  }
+  return _scheduledJobsQueue;
+};
 
 /**
- * Queue for scheduled/cron jobs (midnight auto-close, report generation).
- */
-export const scheduledJobsQueue = new Queue('scheduled-jobs', {
-  connection: createRedisConnection(),
-  defaultJobOptions: {
-    attempts: 3,
-    backoff: { type: 'exponential', delay: 5000 },
-    removeOnComplete: 50,
-    removeOnFail: 200,
-  },
-});
-
-/**
- * Close all queue connections gracefully.
+ * Close all active queue connections gracefully.
  */
 export const closeQueues = async (): Promise<void> => {
-  await attendanceEventsQueue.close();
-  await notificationsQueue.close();
-  await scheduledJobsQueue.close();
+  if (_attendanceEventsQueue) await _attendanceEventsQueue.close();
+  if (_notificationsQueue) await _notificationsQueue.close();
+  if (_scheduledJobsQueue) await _scheduledJobsQueue.close();
 };

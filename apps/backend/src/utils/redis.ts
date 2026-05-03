@@ -5,6 +5,8 @@ const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 const baseOptions: RedisOptions = {
   maxRetriesPerRequest: null, // Required for BullMQ compatibility
   enableReadyCheck: false,
+  family: 0, // Enable dual-stack (IPv4 + IPv6)
+  ...(REDIS_URL.startsWith('rediss://') ? { tls: {} } : {}),
 };
 
 let client: Redis | null = null;

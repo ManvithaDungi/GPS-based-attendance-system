@@ -2,7 +2,7 @@ import { Worker } from 'bullmq';
 import { createRedisConnection } from '../utils/redis';
 import { prisma } from '../utils/prisma';
 import { emitNotification } from '../queues/emitter';
-import { scheduledJobsQueue } from '../queues/index';
+import { getScheduledJobsQueue } from '../queues/index';
 
 /**
  * Midnight auto-close worker.
@@ -76,7 +76,12 @@ export const createAutoCloseWorker = () => {
  */
 export const registerAutoCloseCron = async (): Promise<void> => {
   try {
-    await scheduledJobsQueue.add(
+    const queue = getScheduledJobsQueue();
+    if (!queue) {
+      console.log('[AutoClose] Redis not configured — skipping cron registration');
+      return;
+    }
+    await queue.add(
       'auto-close',
       {},
       {
