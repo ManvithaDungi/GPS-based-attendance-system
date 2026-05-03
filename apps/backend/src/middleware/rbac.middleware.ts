@@ -8,12 +8,13 @@ import { logger } from '../utils/logger';
 export const requireRole = (...roles: string[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(401).json({ error: 'UNAUTHORIZED' });
     }
 
-    // TODO: Check if user role is in allowed roles
-    // TODO: Return 403 if not allowed
-    // TODO: Call next() if allowed
+    if (!roles.includes(req.user.role)) {
+      logger.warn(`Access denied for user ${req.user.id} with role ${req.user.role}`);
+      return res.status(403).json({ error: 'FORBIDDEN' });
+    }
 
     next();
   };

@@ -1,30 +1,17 @@
-import { Router, Request, Response } from 'express';
+import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth.middleware';
+import { requireRole } from '../middleware/rbac.middleware';
+import * as geofenceController from '../controllers/geofence.controller';
 
 const router = Router();
 
-/**
- * GET /api/geofence/nearby
- * Get nearby premises for given coordinates
- */
-router.get('/nearby', authMiddleware, async (req: Request, res: Response) => {
-  // TODO: Validate input query params (latitude, longitude, maxDistance)
-  // TODO: Call geofence service to find nearby premises
-  // TODO: Return array of nearby premises within range
+router.get('/validate', authMiddleware, geofenceController.validateGeofence);
+router.get('/locations', authMiddleware, geofenceController.getLocations);
+router.get('/locations/:locationId', authMiddleware, geofenceController.getLocationById);
 
-  res.json({ message: 'Get nearby premises endpoint - TODO: implement' });
-});
-
-/**
- * GET /api/geofence/:premiseId
- * Get details of specific premise
- */
-router.get('/:premiseId', authMiddleware, async (req: Request, res: Response) => {
-  // TODO: Validate premiseId parameter
-  // TODO: Query premise from database
-  // TODO: Return premise details (location, radius, etc.)
-
-  res.json({ message: 'Get premise endpoint - TODO: implement' });
-});
+// Admin-only location write operations
+router.post('/locations', authMiddleware, requireRole('ADMIN'), geofenceController.createLocation);
+router.put('/locations/:locationId', authMiddleware, requireRole('ADMIN'), geofenceController.updateLocation);
+router.delete('/locations/:locationId', authMiddleware, requireRole('ADMIN'), geofenceController.deleteLocation);
 
 export default router;
