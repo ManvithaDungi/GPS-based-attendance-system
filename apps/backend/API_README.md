@@ -14,11 +14,10 @@
 | Auth | `/api/v1/auth` | ✅ Implemented |
 | Attendance | `/api/v1/attendance` | ✅ Implemented |
 | Geofence | `/api/v1/geofence` | ✅ Implemented (read + admin CRUD) |
-| Admin | `/api/v1/admin` | ⚠️ Stubs + ✅ Student management implemented |
-| Student Dashboard | `/api/v1/student` | ❌ Not mounted |
-| Notifications | `/api/v1/notifications` | ❌ Not mounted |
-| Fraud Logs | `/api/v1/fraud` | ❌ Not mounted |
-| Reports / Config | `/api/v1/admin/reports`, `/api/v1/admin/config` | ❌ Not mounted |
+| Admin | `/api/v1/admin` | ✅ Implemented |
+| Student Dashboard | `/api/v1/student` | ✅ Implemented |
+| Notifications | `/api/v1/notifications` | ✅ Implemented |
+| Fraud Logs | `/api/v1/fraud` | ✅ Implemented |
 
 ---
 
@@ -28,10 +27,12 @@
 2. [Authentication](#2-authentication)
 3. [Attendance](#3-attendance)
 4. [Geofence](#4-geofence)
-5. [Admin (Stubs)](#5-admin-stubs)
-6. [Middleware Behavior](#6-middleware-behavior)
-7. [Error Responses](#7-error-responses)
-8. [Not Yet Implemented](#8-not-yet-implemented)
+5. [Admin](#5-admin)
+6. [Student Dashboard](#6-student-dashboard)
+7. [Notifications & Fraud](#7-notifications--fraud)
+8. [Middleware Behavior](#8-middleware-behavior)
+9. [Error Responses](#9-error-responses)
+10. [Not Yet Implemented](#10-not-yet-implemented)
 
 ---
 
@@ -291,7 +292,7 @@ Change the current user's password.
 
 ## 3. Attendance
 
-Attendance routes require authentication. Role checks are not currently enforced — any authenticated user may call these handlers.
+Attendance routes require authentication. Rate limiting is applied via Redis (e.g. 3 requests per minute per student). Role checks are not currently enforced — any authenticated user may call these handlers.
 
 ### POST `/attendance/checkin`
 
@@ -428,6 +429,8 @@ Idempotency-Key: <unique-request-id>
 }
 ```
 
+> **Background Processing:** Upon successful check-in or checkout, events are pushed to BullMQ queues (`attendance-events`) for asynchronous fraud detection, statistics aggregation, and notifications.
+
 ---
 
 ### GET `/attendance/today`
@@ -530,7 +533,7 @@ Get aggregate attendance counts for the current user.
 
 ## 4. Geofence
 
-Geofence routes require authentication. Role checks are not currently enforced.
+Geofence routes require authentication. Read operations are cached via Redis using a cache-aside pattern (10-minute TTL). Write operations automatically invalidate the cache.
 
 ### GET `/geofence/validate`
 
@@ -628,68 +631,62 @@ Get a single location's details including working hours.
 
 ---
 
-## 5. Admin (Stubs)
+## 5. Admin
 
-Admin routes are mounted under `/api/v1/admin` and protected by both `authMiddleware` and `requireRole("ADMIN")`. All handlers below are currently stubs — they return a TODO message and do not query or mutate data.
+Admin routes are mounted under `/api/v1/admin` and protected by both `authMiddleware` and `requireRole("ADMIN")`.
 
 > A student token will receive `403` on all admin routes.
 
 ### GET `/admin/attendance`
-
-**Response `200`:**
-```json
-{
-  "message": "Get all attendance endpoint - TODO: implement"
-}
-```
-
----
+Returns paginated attendance logs for all students.
 
 ### GET `/admin/students`
-
-**Response `200`:**
-```json
-{
-  "message": "Get students endpoint - TODO: implement"
-}
-```
-
----
+Returns a paginated list of all student users.
 
 ### GET `/admin/students/:studentId/attendance`
+Returns attendance history for a specific student.
 
-**Response `200`:**
-```json
-{
-  "message": "Get student attendance endpoint - TODO: implement"
-}
-```
+### POST `/admin/students`
+Create a new student account.
 
----
+### PATCH `/admin/students/:id/status`
+Suspend or activate a student account.
 
-### POST `/admin/premises`
+### GET `/admin/dashboard`
+Returns high-level statistics: `totalStudents`, `presentToday`, `lateToday`, `totalLocations`.
 
-**Response `200`:**
-```json
-{
-  "message": "Create premise endpoint - TODO: implement"
-}
-```
+### GET `/admin/reports`
+Returns recent report export jobs.
 
----
+### GET `/admin/config`
+Returns global configuration and working hours for all locations.
 
-### GET `/admin/premises`
-
-**Response `200`:**
-```json
-{
-  "message": "Get premises endpoint - TODO: implement"
-}
-```
+### PATCH `/admin/config/working-hours/:locationId`
+Update the working hours and late thresholds for a specific location.
 
 ---
 
-## 6. Middleware Behavior
+## 6. Student Dashboard
+
+### GET `/student/dashboard`
+Returns today's attendance status, unread notification count, and attendance summary statistics (total days, present days, percentage).
+
+---
+
+## 7. Notifications & Fraud
+
+### GET `/notifications`
+Returns the 50 most recent notifications for the authenticated user.
+
+### PATCH `/notifications/:id/read`
+Marks a specific notification as read.
+
+### GET `/fraud`
+**(Admin Only)** Returns paginated fraud logs (e.g. GPS spoofing attempts, device mismatches).
+
+---
+
+## 8. Middleware Behavior
 
 ### Auth Middleware
 
@@ -726,7 +723,7 @@ Idempotency-Key: <unique-request-id>
 
 ---
 
-## 7. Error Responses
+## 9. Error Responses
 
 Error response shapes are not yet fully standardised across all controllers. The following shapes currently exist in the codebase:
 
@@ -763,34 +760,13 @@ Error response shapes are not yet fully standardised across all controllers. The
 
 ---
 
-## 8. Not Yet Implemented
+## 10. Not Yet Implemented
 
-The following endpoints are referenced in tests or the API specification but are not mounted in the current backend.
+The core specification is now complete. The following capabilities are planned for future releases:
 
-| Method | Path | Notes |
-|---|---|---|
-| POST | `/admin/students` | Test allows 404/501 |
-| PATCH | `/admin/students/:id/status` | Test allows 404/501 |
-| GET | `/student/dashboard` | Route group not mounted |
-| GET | `/notifications` | Route group not mounted |
-| PATCH | `/notifications/:id/read` | Route group not mounted |
-| GET | `/fraud` | Route group not mounted |
-| POST | `/geofence/locations` | Test allows 404 |
-| PUT | `/geofence/locations/:id` | Test allows 404 |
-| DELETE | `/geofence/locations/:id` | Test allows 404 |
-
-Additional capabilities planned in the full specification but not yet present:
-
-- Admin dashboard aggregates (`GET /admin/dashboard`)
-- Admin location management (`POST /admin/locations`, `PATCH`, `DELETE`)
-- Student management (`POST /admin/students`, `PATCH /admin/students/:id/status`, bulk import)
-- Notifications (`GET /notifications`, `PATCH /notifications/:id/read`, admin send)
-- Fraud logs (`GET /admin/fraud-logs`)
-- Reports and export (`GET /admin/reports/daily|monthly|yearly`)
-- System configuration (`GET /admin/config`, `PATCH /admin/config/working-hours/:locationId`)
-- Redis caching on geofence and dashboard endpoints
-- BullMQ background jobs (fraud detection, FCM delivery, daily stats, auto-close cron)
-- Rate limiting on attendance endpoints (limiter is declared but not applied)
+- Bulk student import
+- Admin triggered push notifications
+- Full reporting export (CSV/PDF generation via BullMQ)
 - Device mismatch enforcement during check-in/check-out
 
 ---

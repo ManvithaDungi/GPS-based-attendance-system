@@ -6,6 +6,9 @@ import authRoutes from './routes/auth.routes';
 import attendanceRoutes from './routes/attendance.routes';
 import adminRoutes from './routes/admin.routes';
 import geofenceRoutes from './routes/geofence.routes';
+import studentRoutes from './routes/student.routes';
+import notificationRoutes from './routes/notification.routes';
+import fraudRoutes from './routes/fraud.routes';
 
 const app: Express = express();
 
@@ -19,13 +22,16 @@ app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/attendance', attendanceRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/geofence', geofenceRoutes);
+app.use('/api/v1/student', studentRoutes);
+app.use('/api/v1/notifications', notificationRoutes);
+app.use('/api/v1/fraud', fraudRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({
-    message: 'Welcome to InDaZone GPS Attendance API! 🚀',
+    message: 'Welcome to InDaZone GPS Attendance System',
     docs: '/api/v1/docs', // Or wherever your docs live
-    status: 'Backend is working! ✅',
+    status: 'Backend is working!',
   });
 });
 

@@ -25,16 +25,18 @@ afterAll(async () => {
 
 describe('Notifications APIs', () => {
   describe('GET /api/v1/notifications', () => {
-    it('should return 404 because the notifications route group is not mounted', async () => {
+    it('should return 200 and a list of notifications', async () => {
       const res = await request(app)
         .get('/api/v1/notifications')
         .set('Authorization', `Bearer ${token}`);
-      expect(res.status).toBe(404);
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('data');
+      expect(Array.isArray(res.body.data)).toBe(true);
     });
   });
 
   describe('PATCH /api/v1/notifications/:id/read', () => {
-    it('should return 404 because the notifications route group is not mounted', async () => {
+    it('should return 404 for a fake ID', async () => {
       const res = await request(app)
         .patch('/api/v1/notifications/fake-id/read')
         .set('Authorization', `Bearer ${token}`);

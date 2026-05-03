@@ -32,51 +32,40 @@ afterAll(async () => {
 });
 
 describe('Admin APIs', () => {
-  const adminStubs = [
-    {
-      method: 'get',
-      path: '/api/v1/admin/attendance',
-      message: 'Get all attendance endpoint - TODO: implement',
-    },
-    {
-      method: 'get',
-      path: '/api/v1/admin/students',
-      message: 'Get students endpoint - TODO: implement',
-    },
-    {
-      method: 'get',
-      path: '/api/v1/admin/students/fake-student-id/attendance',
-      message: 'Get student attendance endpoint - TODO: implement',
-    },
-    {
-      method: 'post',
-      path: '/api/v1/admin/premises',
-      message: 'Create premise endpoint - TODO: implement',
-    },
-    {
-      method: 'get',
-      path: '/api/v1/admin/premises',
-      message: 'Get premises endpoint - TODO: implement',
-    },
-  ] as const;
-
-  describe('Mounted admin stubs', () => {
-    it.each(adminStubs)('$method $path should return the documented stub for admins', async ({ method, path, message }) => {
-      const res = await request(app)
-        [method](path)
-        .set('Authorization', `Bearer ${adminToken}`);
-
+  describe('Admin dashboard and lists', () => {
+    it('GET /api/v1/admin/attendance should return 200 and pagination', async () => {
+      const res = await request(app).get('/api/v1/admin/attendance').set('Authorization', `Bearer ${adminToken}`);
       expect(res.status).toBe(200);
-      expect(res.body).toEqual({ message });
+      expect(res.body).toHaveProperty('data');
     });
 
-    it.each(adminStubs)('$method $path should return 403 for students', async ({ method, path }) => {
-      const res = await request(app)
-        [method](path)
-        .set('Authorization', `Bearer ${studentToken}`);
+    it('GET /api/v1/admin/students should return 200 and pagination', async () => {
+      const res = await request(app).get('/api/v1/admin/students').set('Authorization', `Bearer ${adminToken}`);
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('data');
+    });
 
+    it('GET /api/v1/admin/students/:studentId/attendance should return 200', async () => {
+      const res = await request(app).get('/api/v1/admin/students/fake-student-id/attendance').set('Authorization', `Bearer ${adminToken}`);
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('data');
+    });
+
+    it('GET /api/v1/admin/dashboard should return 200 and stats', async () => {
+      const res = await request(app).get('/api/v1/admin/dashboard').set('Authorization', `Bearer ${adminToken}`);
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('totalStudents');
+    });
+
+    it('GET /api/v1/admin/config should return 200', async () => {
+      const res = await request(app).get('/api/v1/admin/config').set('Authorization', `Bearer ${adminToken}`);
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('data');
+    });
+
+    it('should return 403 for students accessing admin routes', async () => {
+      const res = await request(app).get('/api/v1/admin/dashboard').set('Authorization', `Bearer ${studentToken}`);
       expect(res.status).toBe(403);
-      expect(res.body).toEqual({ error: 'FORBIDDEN' });
     });
   });
 

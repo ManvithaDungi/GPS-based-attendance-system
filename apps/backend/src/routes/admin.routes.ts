@@ -6,37 +6,21 @@ import * as adminController from '../controllers/admin.controller';
 const router = Router();
 
 /**
- * GET /api/admin/attendance
+ * GET /api/v1/admin/attendance
  * Get all students' attendance summary
  * Admin only
  */
-router.get('/attendance', authMiddleware, requireRole('ADMIN'), async (req: Request, res: Response) => {
-  // TODO: Verify user is admin
-  // TODO: Query attendance summary for all students
-  // TODO: Support filtering by date
-  // TODO: Support sorting options
-  // TODO: Return array of student attendance records
-
-  res.json({ message: 'Get all attendance endpoint - TODO: implement' });
-});
+router.get('/attendance', authMiddleware, requireRole('ADMIN'), adminController.getAllAttendance);
 
 /**
- * GET /api/admin/students
+ * GET /api/v1/admin/students
  * Get list of all students with basic info
  * Admin only
  */
-router.get('/students', authMiddleware, requireRole('ADMIN'), async (req: Request, res: Response) => {
-  // TODO: Verify user is admin
-  // TODO: Query all students from database
-  // TODO: Support pagination
-  // TODO: Support filtering by name or email
-  // TODO: Return array of student records
-
-  res.json({ message: 'Get students endpoint - TODO: implement' });
-});
+router.get('/students', authMiddleware, requireRole('ADMIN'), adminController.getAllStudents);
 
 /**
- * GET /api/admin/students/:studentId/attendance
+ * GET /api/v1/admin/students/:studentId/attendance
  * Get attendance history for specific student
  * Admin only
  */
@@ -44,43 +28,28 @@ router.get(
   '/students/:studentId/attendance',
   authMiddleware,
   requireRole('ADMIN'),
-  async (req: Request, res: Response) => {
-    // TODO: Verify user is admin
-    // TODO: Validate studentId parameter
-    // TODO: Query attendance records for this student
-    // TODO: Support date range filtering
-    // TODO: Return attendance history
-
-    res.json({ message: 'Get student attendance endpoint - TODO: implement' });
-  }
+  adminController.getStudentAttendance
 );
 
 /**
- * POST /api/admin/premises
- * Create new premise/geofence
- * Admin only
+ * GET /api/v1/admin/dashboard
  */
-router.post('/premises', authMiddleware, requireRole('ADMIN'), async (req: Request, res: Response) => {
-  // TODO: Validate input (name, latitude, longitude, radiusMeters)
-  // TODO: Verify user is admin
-  // TODO: Create premise in database
-  // TODO: Return created premise record
-
-  res.json({ message: 'Create premise endpoint - TODO: implement' });
-});
+router.get('/dashboard', authMiddleware, requireRole('ADMIN'), adminController.getDashboardStats);
 
 /**
- * GET /api/admin/premises
- * Get all premises
- * Admin only
+ * GET /api/v1/admin/reports
  */
-router.get('/premises', authMiddleware, requireRole('ADMIN'), async (req: Request, res: Response) => {
-  // TODO: Verify user is admin
-  // TODO: Query all premises from database
-  // TODO: Return array of premise records
+router.get('/reports', authMiddleware, requireRole('ADMIN'), adminController.getReports);
 
-  res.json({ message: 'Get premises endpoint - TODO: implement' });
-});
+/**
+ * GET /api/v1/admin/config
+ */
+router.get('/config', authMiddleware, requireRole('ADMIN'), adminController.getConfig);
+
+/**
+ * PATCH /api/v1/admin/config/working-hours/:locationId
+ */
+router.patch('/config/working-hours/:locationId', authMiddleware, requireRole('ADMIN'), adminController.updateWorkingHours);
 
 /**
  * POST /api/admin/students

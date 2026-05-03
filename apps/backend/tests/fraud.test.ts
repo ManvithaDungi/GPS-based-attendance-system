@@ -25,11 +25,13 @@ afterAll(async () => {
 
 describe('Fraud Log APIs', () => {
   describe('GET /api/v1/fraud', () => {
-    it('should return 404 because the fraud route group is not mounted', async () => {
+    it('should return 200 and paginated fraud logs for admin', async () => {
       const res = await request(app)
         .get('/api/v1/fraud')
         .set('Authorization', `Bearer ${adminToken}`);
-      expect(res.status).toBe(404);
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('data');
+      expect(res.body).toHaveProperty('pagination');
     });
   });
 });
