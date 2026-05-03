@@ -27,6 +27,9 @@ jobs:
       run:
         working-directory: ${{ env.WORKING_DIR }}
 
+    env:
+      DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
