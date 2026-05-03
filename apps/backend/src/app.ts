@@ -20,6 +20,15 @@ app.use('/api/v1/attendance', attendanceRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/geofence', geofenceRoutes);
 
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Welcome to InDaZone GPS Attendance API! 🚀',
+    docs: '/api/v1/docs', // Or wherever your docs live
+    status: 'Backend is working! ✅',
+  });
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
