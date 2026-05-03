@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { requireRole } from '../middleware/rbac.middleware';
+import * as adminController from '../controllers/admin.controller';
 
 const router = Router();
 
@@ -80,5 +81,19 @@ router.get('/premises', authMiddleware, requireRole('ADMIN'), async (req: Reques
 
   res.json({ message: 'Get premises endpoint - TODO: implement' });
 });
+
+/**
+ * POST /api/admin/students
+ * Create a new student
+ * Admin only
+ */
+router.post('/students', authMiddleware, requireRole('ADMIN'), adminController.createStudent);
+
+/**
+ * PATCH /api/admin/students/:id/status
+ * Update student status (ACTIVE / SUSPENDED)
+ * Admin only
+ */
+router.patch('/students/:id/status', authMiddleware, requireRole('ADMIN'), adminController.updateStudentStatus);
 
 export default router;

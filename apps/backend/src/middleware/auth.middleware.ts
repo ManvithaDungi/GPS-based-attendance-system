@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { logger } from '../utils/logger';
 import { prisma } from '../utils/prisma';
+import { getJwtSecret } from '../utils/env';
 
 declare global {
   namespace Express {
@@ -16,8 +17,6 @@ declare global {
   }
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-
 export const authMiddleware = async (req: Request, res: Response, next: NextFunction): Promise<void | Response> => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
@@ -26,7 +25,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
       return res.status(401).json({ error: 'UNAUTHORIZED', message: 'No token provided' });
     }
 
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; role: string };
+    const decoded = jwt.verify(token, getJwtSecret()) as { userId: string; role: string };
     
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId }

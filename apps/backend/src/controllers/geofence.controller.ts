@@ -85,3 +85,72 @@ export const getLocationById = async (req: Request, res: Response): Promise<Resp
     return res.status(500).json({ error: 'INTERNAL_ERROR' });
   }
 };
+
+const createLocationSchema = z.object({
+  name: z.string().min(1),
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180),
+  radiusMeters: z.number().positive(),
+  workingHours: z.object({
+    startTime: z.string().min(1),
+    endTime: z.string().min(1),
+    lateThresholdMins: z.number().int().nonnegative().optional(),
+    minDurationHours: z.number().nonnegative().optional(),
+  }).optional(),
+});
+
+const updateLocationSchema = z.object({
+  name: z.string().min(1).optional(),
+  latitude: z.number().min(-90).max(90).optional(),
+  longitude: z.number().min(-180).max(180).optional(),
+  radiusMeters: z.number().positive().optional(),
+  workingHours: z.object({
+    startTime: z.string().min(1),
+    endTime: z.string().min(1),
+    lateThresholdMins: z.number().int().nonnegative().optional(),
+    minDurationHours: z.number().nonnegative().optional(),
+  }).optional(),
+});
+
+export const createLocation = async (req: Request, res: Response): Promise<Response> => {
+  try {
+    const data = createLocationSchema.parse(req.body);
+    const location = await geofenceService.createLocation(data);
+    return res.status(201).json({ message: 'Location created successfully', location });
+  } catch (error: unknown) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Validation error', details: error.errors });
+    }
+    return res.status(500).json({ error: 'INTERNAL_ERROR' });
+  }
+};
+
+export const updateLocation = async (req: Request, res: Response): Promise<Response> => {
+  try {
+    const locationId = z.string().min(1).parse(req.params.locationId);
+    const data = updateLocationSchema.parse(req.body);
+    const location = await geofenceService.updateLocation(locationId, data);
+    return res.status(200).json({ message: 'Location updated successfully', location });
+  } catch (error: unknown) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Validation error', details: error.errors });
+    }
+    if (error instanceof Error && error.message === 'LOCATION_NOT_FOUND') {
+      return res.status(404).json({ error: 'LOCATION_NOT_FOUND' });
+    }
+    return res.status(500).json({ error: 'INTERNAL_ERROR' });
+  }
+};
+
+export const deleteLocation = async (req: Request, res: Response): Promise<Response> => {
+  try {
+    const locationId = z.string().min(1).parse(req.params.locationId);
+    await geofenceService.softDeleteLocation(locationId);
+    return res.status(200).json({ message: 'Location deleted successfully' });
+  } catch (error: unknown) {
+    if (error instanceof Error && error.message === 'LOCATION_NOT_FOUND') {
+      return res.status(404).json({ error: 'LOCATION_NOT_FOUND' });
+    }
+    return res.status(500).json({ error: 'INTERNAL_ERROR' });
+  }
+};

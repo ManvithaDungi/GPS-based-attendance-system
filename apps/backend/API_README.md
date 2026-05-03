@@ -13,8 +13,8 @@
 |---|---|---|
 | Auth | `/api/v1/auth` | ✅ Implemented |
 | Attendance | `/api/v1/attendance` | ✅ Implemented |
-| Geofence | `/api/v1/geofence` | ✅ Implemented (partially tested) |
-| Admin | `/api/v1/admin` | ⚠️ Mounted — handlers are stubs |
+| Geofence | `/api/v1/geofence` | ✅ Implemented (read + admin CRUD) |
+| Admin | `/api/v1/admin` | ⚠️ Stubs + ✅ Student management implemented |
 | Student Dashboard | `/api/v1/student` | ❌ Not mounted |
 | Notifications | `/api/v1/notifications` | ❌ Not mounted |
 | Fraud Logs | `/api/v1/fraud` | ❌ Not mounted |
@@ -750,7 +750,7 @@ Error response shapes are not yet fully standardised across all controllers. The
 | 400 | `VALIDATION_ERROR` | Request body or params failed Zod validation |
 | 400 | `STALE_TIMESTAMP` | Timestamp is older than 30 seconds (replay protection) |
 | 400 | `LOW_GPS_ACCURACY` | Device GPS accuracy exceeds the 100 m threshold |
-| 400 | `ALREADY_CHECKED_IN` | A check-in already exists for today |
+| 409 | `ALREADY_CHECKED_IN` | A check-in already exists for today |
 | 401 | `UNAUTHORIZED` | Missing or invalid access token |
 | 401 | `ACCOUNT_SUSPENDED` | User account has been suspended |
 | 401 | `INVALID_REFRESH_TOKEN` | Refresh token is invalid or expired |

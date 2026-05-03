@@ -19,6 +19,28 @@ const checkOutSchema = z.object({
   accuracyMeters: z.number(),
 });
 
+const positiveIntegerQueryParam = z.preprocess((value) => {
+  if (Array.isArray(value)) return value[0];
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string' || value.trim() === '') return value;
+  return Number(value);
+}, z.number().int().positive().optional());
+
+const dateQueryParam = z.preprocess((value) => {
+  if (Array.isArray(value)) return value[0];
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string' || value.trim() === '') return value;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date;
+}, z.date().optional());
+
+const historyQuerySchema = z.object({
+  page: positiveIntegerQueryParam.default(1),
+  limit: positiveIntegerQueryParam.default(10),
+  from: dateQueryParam,
+  to: dateQueryParam,
+});
+
 interface AttendanceRecordResponse {
   id: string;
   locationId: string;
@@ -233,10 +255,7 @@ export const getToday = async (req: Request, res: Response): Promise<Response> =
 
 export const getHistory = async (req: Request, res: Response): Promise<Response> => {
   try {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
-    const from = req.query.from ? new Date(req.query.from as string) : undefined;
-    const to = req.query.to ? new Date(req.query.to as string) : undefined;
+    const { page, limit, from, to } = historyQuerySchema.parse(req.query);
 
     const result = await attendanceService.getAttendanceHistory(req.user!.id, page, limit, from, to);
     return res.status(200).json({
@@ -244,6 +263,9 @@ export const getHistory = async (req: Request, res: Response): Promise<Response>
       pagination: result.pagination,
     });
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'VALIDATION_ERROR', details: error.errors });
+    }
     return res.status(500).json({ error: 'INTERNAL_ERROR' });
   }
 };

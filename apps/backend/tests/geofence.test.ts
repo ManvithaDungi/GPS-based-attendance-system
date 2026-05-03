@@ -148,31 +148,72 @@ describe('Geofence APIs', () => {
     });
   });
 
-  describe('Not yet implemented geofence location writes', () => {
-    it('should return 404 for POST /api/v1/geofence/locations', async () => {
+  describe('Geofence location write operations (Admin only)', () => {
+    let createdLocationId: string;
+
+    it('should create a new location (admin)', async () => {
       const res = await request(app)
         .post('/api/v1/geofence/locations')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({ name: 'New Location', latitude: 20, longitude: 20, radiusMeters: 100 });
 
-      expect(res.status).toBe(404);
+      expect(res.status).toBe(201);
+      expect(res.body.message).toBe('Location created successfully');
+      expect(res.body.location.name).toBe('New Location');
+      expect(res.body.location.latitude).toBe(20);
+      expect(res.body.location.radiusMeters).toBe(100);
+      expect(res.body.location.id).toBeDefined();
+      createdLocationId = res.body.location.id;
     });
 
-    it('should return 404 for PUT /api/v1/geofence/locations/:id', async () => {
+    it('should reject location creation by a student (403)', async () => {
       const res = await request(app)
-        .put(`/api/v1/geofence/locations/${locationId}`)
+        .post('/api/v1/geofence/locations')
+        .set('Authorization', `Bearer ${studentToken}`)
+        .send({ name: 'Student Location', latitude: 5, longitude: 5, radiusMeters: 50 });
+
+      expect(res.status).toBe(403);
+      expect(res.body).toEqual({ error: 'FORBIDDEN' });
+    });
+
+    it('should update an existing location (admin)', async () => {
+      const res = await request(app)
+        .put(`/api/v1/geofence/locations/${createdLocationId}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .send({ name: 'Updated Location', radiusMeters: 200 });
 
-      expect(res.status).toBe(404);
+      expect(res.status).toBe(200);
+      expect(res.body.message).toBe('Location updated successfully');
+      expect(res.body.location.name).toBe('Updated Location');
+      expect(res.body.location.radiusMeters).toBe(200);
     });
 
-    it('should return 404 for DELETE /api/v1/geofence/locations/:id', async () => {
+    it('should return LOCATION_NOT_FOUND when updating unknown location', async () => {
       const res = await request(app)
-        .delete(`/api/v1/geofence/locations/${locationId}`)
+        .put('/api/v1/geofence/locations/00000000-0000-0000-0000-000000000000')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ name: 'Ghost' });
+
+      expect(res.status).toBe(404);
+      expect(res.body).toEqual({ error: 'LOCATION_NOT_FOUND' });
+    });
+
+    it('should soft-delete a location (admin)', async () => {
+      const res = await request(app)
+        .delete(`/api/v1/geofence/locations/${createdLocationId}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.message).toBe('Location deleted successfully');
+    });
+
+    it('should return LOCATION_NOT_FOUND when deleting already-deleted location', async () => {
+      const res = await request(app)
+        .delete(`/api/v1/geofence/locations/${createdLocationId}`)
         .set('Authorization', `Bearer ${adminToken}`);
 
       expect(res.status).toBe(404);
+      expect(res.body).toEqual({ error: 'LOCATION_NOT_FOUND' });
     });
   });
 });

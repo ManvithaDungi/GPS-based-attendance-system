@@ -80,8 +80,8 @@ describe('Admin APIs', () => {
     });
   });
 
-  describe('Not yet implemented admin student-management routes', () => {
-    it('should return 404 for POST /api/v1/admin/students', async () => {
+  describe('Admin student-management routes', () => {
+    it('should create a new student successfully as admin', async () => {
       const res = await request(app)
         .post('/api/v1/admin/students')
         .set('Authorization', `Bearer ${adminToken}`)
@@ -91,17 +91,64 @@ describe('Admin APIs', () => {
           studentCode: 'STU001',
           password: 'password123'
         });
-      expect(res.status).toBe(404);
+
+      expect(res.status).toBe(201);
+      expect(res.body.message).toBe('Student created successfully');
+      expect(res.body.student.name).toBe('New Student');
+      expect(res.body.student.email).toBe('newstudent@example.com');
+      expect(res.body.student.role).toBe('STUDENT');
+      expect(res.body.student.status).toBe('ACTIVE');
+      expect(res.body.student.studentCode).toBe('STU001');
     });
 
-    it('should return 404 for PATCH /api/v1/admin/students/:id/status', async () => {
+    it('should fail to create student with duplicate email', async () => {
+      const res = await request(app)
+        .post('/api/v1/admin/students')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          name: 'Duplicate Student',
+          email: 'newstudent@example.com',
+          password: 'password123'
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({ error: 'Validation error', details: [] });
+    });
+
+    it('should reject student creation by a student (403)', async () => {
+      const res = await request(app)
+        .post('/api/v1/admin/students')
+        .set('Authorization', `Bearer ${studentToken}`)
+        .send({
+          name: 'Sneaky Student',
+          email: 'sneaky@example.com',
+          password: 'password123'
+        });
+
+      expect(res.status).toBe(403);
+      expect(res.body).toEqual({ error: 'FORBIDDEN' });
+    });
+
+    it('should update student status', async () => {
       const student = await prisma.user.findFirst({ where: { role: 'STUDENT' } });
       const res = await request(app)
         .patch(`/api/v1/admin/students/${student?.id}/status`)
         .set('Authorization', `Bearer ${adminToken}`)
         .send({ status: 'SUSPENDED' });
 
+      expect(res.status).toBe(200);
+      expect(res.body.message).toBe('Student status updated');
+      expect(res.body.student.status).toBe('SUSPENDED');
+    });
+
+    it('should return NOT_FOUND for non-existent student status update', async () => {
+      const res = await request(app)
+        .patch('/api/v1/admin/students/00000000-0000-0000-0000-000000000000/status')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ status: 'ACTIVE' });
+
       expect(res.status).toBe(404);
+      expect(res.body.error).toBe('NOT_FOUND');
     });
   });
 });

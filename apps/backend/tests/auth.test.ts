@@ -3,6 +3,7 @@ import app from '../src/app';
 import { prisma } from '../src/utils/prisma';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import { cleanDatabase } from './helpers/database';
 
 let adminToken: string;
 let studentToken: string;
@@ -10,13 +11,11 @@ let adminRefreshToken: string;
 let studentId: string;
 
 beforeAll(async () => {
-  await prisma.session.deleteMany();
-  await prisma.user.deleteMany();
+  await cleanDatabase(prisma);
 });
 
 afterAll(async () => {
-  await prisma.session.deleteMany();
-  await prisma.user.deleteMany();
+  await cleanDatabase(prisma);
   await prisma.$disconnect();
 });
 
@@ -200,7 +199,7 @@ describe('Auth APIs', () => {
     it('should fail with 401 for an expired token', async () => {
       const token = jwt.sign(
         { userId: '00000000-0000-0000-0000-000000000000', role: 'STUDENT' },
-        process.env.JWT_SECRET || 'your-secret-key',
+        process.env.JWT_SECRET!,
         { expiresIn: '-1s' }
       );
 
@@ -215,7 +214,7 @@ describe('Auth APIs', () => {
     it('should fail with 401 for a token whose user no longer exists', async () => {
       const token = jwt.sign(
         { userId: '00000000-0000-0000-0000-000000000000', role: 'STUDENT' },
-        process.env.JWT_SECRET || 'your-secret-key',
+        process.env.JWT_SECRET!,
         { expiresIn: '15m' }
       );
 
@@ -240,7 +239,7 @@ describe('Auth APIs', () => {
       });
       const token = jwt.sign(
         { userId: suspended.id, role: 'STUDENT' },
-        process.env.JWT_SECRET || 'your-secret-key',
+        process.env.JWT_SECRET!,
         { expiresIn: '15m' }
       );
 
@@ -299,6 +298,48 @@ describe('Auth APIs', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .send({ refreshToken: adminRefreshToken });
       expect(res.status).toBe(200);
+    });
+
+    it('should not delete another user session when given another user refresh token', async () => {
+      const passwordHash = await bcrypt.hash('password123', 10);
+      await prisma.user.createMany({
+        data: [
+          {
+            name: 'Logout Owner',
+            email: 'logout-owner@example.com',
+            passwordHash,
+            role: 'ADMIN',
+          },
+          {
+            name: 'Logout Other',
+            email: 'logout-other@example.com',
+            passwordHash,
+            role: 'ADMIN',
+          },
+        ],
+      });
+
+      const ownerLogin = await request(app).post('/api/v1/auth/login').send({
+        email: 'logout-owner@example.com',
+        password: 'password123',
+        deviceId: 'logout-owner-device',
+      });
+      const otherLogin = await request(app).post('/api/v1/auth/login').send({
+        email: 'logout-other@example.com',
+        password: 'password123',
+        deviceId: 'logout-other-device',
+      });
+
+      const res = await request(app)
+        .post('/api/v1/auth/logout')
+        .set('Authorization', `Bearer ${ownerLogin.body.accessToken}`)
+        .send({ refreshToken: otherLogin.body.refreshToken });
+      const otherSession = await prisma.session.findUnique({
+        where: { refreshToken: otherLogin.body.refreshToken },
+      });
+
+      expect(res.status).toBe(200);
+      expect(otherSession).not.toBeNull();
     });
   });
 });

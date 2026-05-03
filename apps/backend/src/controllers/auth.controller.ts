@@ -3,9 +3,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { prisma } from '../utils/prisma';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-const REFRESH_SECRET = process.env.REFRESH_SECRET || 'your-refresh-secret-key';
+import { getJwtSecret, getRefreshSecret } from '../utils/env';
 
 // Schemas
 const registerSchema = z.object({
@@ -36,8 +34,10 @@ const passwordSchema = z.object({
 
 // Helper for tokens
 const generateTokens = (userId: string, role: string) => {
-  const accessToken = jwt.sign({ userId, role }, JWT_SECRET, { expiresIn: '15m' });
-  const refreshToken = jwt.sign({ userId }, REFRESH_SECRET, { expiresIn: '7d' });
+  const jwtSecret = getJwtSecret();
+  const refreshSecret = getRefreshSecret();
+  const accessToken = jwt.sign({ userId, role }, jwtSecret, { expiresIn: '15m' });
+  const refreshToken = jwt.sign({ userId }, refreshSecret, { expiresIn: '7d' });
   return { accessToken, refreshToken };
 };
 
@@ -116,6 +116,12 @@ export const login = async (req: Request, res: Response): Promise<Response> => {
       });
     }
 
+    // Update the user's device ID so GET /auth/me returns the current device
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { deviceId: data.deviceId },
+    });
+
     const { accessToken, refreshToken } = generateTokens(user.id, user.role);
 
     const expiresAt = new Date();
@@ -166,7 +172,7 @@ export const refresh = async (req: Request, res: Response): Promise<Response> =>
     }
 
     try {
-      jwt.verify(data.refreshToken, REFRESH_SECRET);
+      jwt.verify(data.refreshToken, getRefreshSecret());
     } catch (e) {
       return res.status(401).json({
         error: 'UNAUTHORIZED',
@@ -203,9 +209,12 @@ export const logout = async (req: Request, res: Response): Promise<Response> => 
   try {
     const data = refreshSchema.parse(req.body);
 
-    await prisma.session.delete({
-      where: { refreshToken: data.refreshToken }
-    }).catch(() => {});
+    await prisma.session.deleteMany({
+      where: {
+        refreshToken: data.refreshToken,
+        userId: req.user!.id,
+      },
+    });
 
     return res.status(200).json({ message: 'Logged out successfully' });
   } catch (error) {

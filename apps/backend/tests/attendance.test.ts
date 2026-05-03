@@ -609,5 +609,25 @@ describe('Attendance APIs', () => {
       expect(res.body.data).toBeInstanceOf(Array);
       expect(res.body.pagination).toBeDefined();
     });
+
+    it('should reject invalid date filters with VALIDATION_ERROR', async () => {
+      const res = await request(app)
+        .get('/api/v1/attendance/history?from=not-a-date')
+        .set('Authorization', `Bearer ${studentToken}`);
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('VALIDATION_ERROR');
+      expect(res.body.details).toBeInstanceOf(Array);
+    });
+
+    it('should reject invalid pagination params with VALIDATION_ERROR', async () => {
+      const res = await request(app)
+        .get('/api/v1/attendance/history?page=0&limit=not-a-number')
+        .set('Authorization', `Bearer ${studentToken}`);
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('VALIDATION_ERROR');
+      expect(res.body.details).toBeInstanceOf(Array);
+    });
   });
 });

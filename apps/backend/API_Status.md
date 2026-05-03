@@ -23,8 +23,8 @@ npm test -- --runInBand
 Verification result:
 
 - TypeScript build: PASS
-- Jest suites: PASS, 8 suites passed
-- Jest tests: PASS, 70 tests passed
+- Jest suites: PASS, 9 suites passed
+- Jest tests: PASS, 75 tests passed
 - Notes: Jest still prints the existing `forceExit` open-handle warning. The stricter contract suite passes.
 
 ## Fix Log
@@ -137,6 +137,60 @@ Verification result:
 - Change made: Replaced placeholder checks with exact `404` assertions for not-mounted student dashboard, notifications, fraud, admin student-management routes, and geofence write routes.
 - Updated status: Not-yet-implemented routes -> Exact 404 tests.
 
+### Fix #19
+
+- Issue: `GET /attendance/history` accepted `from`, `to`, `page`, and `limit` without validation, allowing invalid query values to reach Prisma and return `500 INTERNAL_ERROR`.
+- Change made: Added Zod query validation for positive integer pagination and valid date filters. Invalid query params now return `400 VALIDATION_ERROR`.
+- Updated status: Attendance history query params -> Validated and tested.
+
+### Fix #20
+
+- Issue: Auth token signing and verification used hard-coded fallback secrets when `JWT_SECRET` or `REFRESH_SECRET` were missing.
+- Change made: Added required environment secret loading in `src/utils/env.ts`, removed fallback secrets from production code, wired auth controller/middleware to required secrets, and added Jest setup-only test secrets.
+- Updated status: Auth secrets -> Required at startup and tested.
+
+### Fix #21
+
+- Issue: Logout deleted sessions by `refreshToken` only, allowing any authenticated caller with another user's refresh token to revoke that other user's session.
+- Change made: Scoped logout deletion by both `refreshToken` and `req.user.id` using `deleteMany`, and added a test proving another user's session is not deleted.
+- Updated status: Logout session ownership -> Scoped and tested.
+
+### Fix #22
+
+- Issue: `.env` defined `JWT_REFRESH_SECRET` but `src/utils/env.ts` reads `REFRESH_SECRET`. Tests passed only because `tests/setup-env.ts` injects a fallback. Production startup would crash.
+- Change made: Renamed `JWT_REFRESH_SECRET` to `REFRESH_SECRET` in `.env`.
+- Updated status: .env config -> Matches code. Production startup risk resolved.
+
+### Fix #23
+
+- Issue: `User.deviceId` field was never populated. Login wrote `deviceId` to `Session` only, but `GET /auth/me` reads from `User` model, always returning `null`.
+- Change made: Added `prisma.user.update({ deviceId })` in the login handler so `GET /auth/me` returns the actual device ID.
+- Updated status: User.deviceId -> Populated during login.
+
+### Fix #24
+
+- Issue: `auth.test.ts` used manual `prisma.session.deleteMany()` and `prisma.user.deleteMany()` instead of the shared `cleanDatabase` helper. All other test files use the helper.
+- Change made: Replaced manual cleanup with `cleanDatabase(prisma)` and added the import.
+- Updated status: auth.test.ts cleanup -> Uses shared helper.
+
+### Fix #25
+
+- Issue: `API_README.md` Common Error Codes table listed `ALREADY_CHECKED_IN` as HTTP `400`, but the code returns `409`. The endpoint-specific documentation at the same file correctly shows `409`.
+- Change made: Updated the error codes table to show `409`.
+- Updated status: Error table -> Matches code.
+
+### Fix #26
+
+- Issue: `API_README.md` Implementation Status table still marked Geofence as "partially tested" despite comprehensive tests existing.
+- Change made: Removed "(partially tested)" qualifier.
+- Updated status: Geofence status label -> Accurate.
+
+### Fix #27
+
+- Issue: `response.txt` was missing `GET /health`, `POST /auth/refresh`, `POST /auth/logout`, `GET /auth/me`, `PATCH /auth/me/fcm-token`, `PATCH /auth/me/password` from the implemented section. Admin stub labels were misleading. Summary table was incomplete.
+- Change made: Added all missing endpoints, corrected stub labels, added health check and admin stubs to summary table, clarified student management status.
+- Updated status: response.txt -> Complete and accurate.
+
 ## Executive Summary
 
 The backend matches `API_README.md`.
@@ -178,7 +232,7 @@ No APIs marked "not yet implemented" were implemented.
 | POST | `/api/v1/attendance/checkin` | Protected check-in with geofence, timestamp, accuracy, idempotency | Implemented in `attendance.controller.ts` and `attendance.service.ts` | Strict success, geofence, duplicate, stale timestamp, low accuracy, missing location, unauthenticated, and idempotency tests | Implemented and tested |
 | POST | `/api/v1/attendance/checkout` | Protected checkout with status/duration calculation | Implemented in `attendance.controller.ts` and `attendance.service.ts` | Strict success, duplicate, no-checkin, outside-geofence, low accuracy, and working-hours tests | Implemented and tested |
 | GET | `/api/v1/attendance/today` | Protected today's record | Implemented in `attendance.controller.ts` | Strict success test | Implemented and tested |
-| GET | `/api/v1/attendance/history` | Protected paginated history | Implemented in `attendance.controller.ts` | Strict response-shape test | Implemented and tested |
+| GET | `/api/v1/attendance/history` | Protected paginated history | Implemented in `attendance.controller.ts` | Strict response-shape and invalid-query tests | Implemented and tested |
 | GET | `/api/v1/attendance/summary` | Protected aggregate summary | Implemented in `attendance.controller.ts` | Strict response test | Implemented and tested |
 | GET | `/api/v1/geofence/validate` | Protected coordinate validation | Implemented in `geofence.controller.ts` | Strict success and error tests | Implemented and tested |
 | GET | `/api/v1/geofence/locations` | Protected active location list | Implemented in `geofence.controller.ts` | Strict admin/student response tests | Implemented and tested |
@@ -263,13 +317,13 @@ Spec alignment:
 - Checkout validates body shape, timestamp freshness, GPS accuracy, existing same-day attendance record, duplicate checkout, active location, geofence distance, duration, status, and punctuality.
 - Haversine distance is calculated server-side.
 - Check-in/check-out return documented wrappers: `{ message, attendance }`.
-- History excludes soft-deleted records and returns `data` plus `pagination`.
+- History excludes soft-deleted records, validates `page`, `limit`, `from`, and `to`, and returns `data` plus `pagination`.
 - Summary counts late days as present days.
 - Idempotency middleware is applied to check-in and checkout routes.
 
 Test coverage:
 
-- `attendance.test.ts` covers outside-geofence check-in, successful check-in, duplicate check-in, stale timestamp, low GPS accuracy, missing location, unauthenticated check-in, today's attendance, successful checkout, duplicate checkout, checkout before check-in, checkout outside geofence, low GPS accuracy on checkout, working-hours `PRESENT`, `LATE`, and `ABSENT`, summary, history, idempotency replay, idempotency different payload, idempotency in-flight conflict, and idempotency failed-record cleanup.
+- `attendance.test.ts` covers outside-geofence check-in, successful check-in, duplicate check-in, stale timestamp, low GPS accuracy, missing location, unauthenticated check-in, today's attendance, successful checkout, duplicate checkout, checkout before check-in, checkout outside geofence, low GPS accuracy on checkout, working-hours `PRESENT`, `LATE`, and `ABSENT`, summary, history, invalid history query params, idempotency replay, idempotency different payload, idempotency in-flight conflict, and idempotency failed-record cleanup.
 
 Remaining gaps from previous audit:
 
@@ -409,7 +463,8 @@ Additional planned capabilities that are not present remain unchanged:
 | --- | --- | --- | --- |
 | `health.test.ts` | Health check | Strict | Exact status and response shape |
 | `auth.test.ts` | Auth endpoints and auth middleware | Strict | Exact statuses and response bodies for success and documented failures |
-| `attendance.test.ts` | Attendance endpoints and idempotency middleware | Strict | Covers success paths, documented errors, working-hours outcomes, and idempotency branches |
+| `attendance.test.ts` | Attendance endpoints and idempotency middleware | Strict | Covers success paths, documented errors, validated query params, working-hours outcomes, and idempotency branches |
+| `env.test.ts` | Required auth secrets | Strict | Verifies `JWT_SECRET` and `REFRESH_SECRET` fail fast when missing |
 | `geofence.test.ts` | Geofence endpoints and not-yet-implemented geofence writes | Strict | Exact statuses and response shapes |
 | `admin.test.ts` | Admin stubs, RBAC, and not-yet-implemented admin student-management routes | Strict | Exact stub responses, exact `403`, exact `404` |
 | `student.test.ts` | Unmounted student dashboard | Strict | Exact `404` |
@@ -431,6 +486,15 @@ Resolved risks:
 - Admin stubs now have exact response tests.
 - Placeholder `[200, 404, 501]` tests were replaced with exact assertions.
 - Idempotency behavior is now tested.
+- Invalid attendance history query params now return `400 VALIDATION_ERROR`.
+- Auth secrets no longer use hard-coded fallbacks.
+- Logout no longer deletes another user's session by refresh token alone.
+- `.env` REFRESH_SECRET variable name now matches `env.ts` (was `JWT_REFRESH_SECRET`).
+- `User.deviceId` is now populated during login so `GET /auth/me` returns actual device.
+- `auth.test.ts` now uses the shared `cleanDatabase` helper.
+- `API_README.md` error table `ALREADY_CHECKED_IN` corrected from `400` to `409`.
+- `API_README.md` geofence status label updated (removed "partially tested").
+- `response.txt` now lists all 7 auth endpoints, health check, and uses accurate stub labels.
 
 ## Final Status
 

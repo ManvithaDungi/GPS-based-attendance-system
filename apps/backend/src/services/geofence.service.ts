@@ -119,6 +119,77 @@ export const getLocationById = async (locationId: string) => {
   return location;
 };
 
+const locationWithWorkingHoursSelect = {
+  id: true,
+  name: true,
+  latitude: true,
+  longitude: true,
+  radiusMeters: true,
+  workingHours: {
+    select: {
+      startTime: true,
+      endTime: true,
+      lateThresholdMins: true,
+      minDurationHours: true,
+    },
+  },
+};
+
+export const createLocation = async (data: {
+  name: string;
+  latitude: number;
+  longitude: number;
+  radiusMeters: number;
+  workingHours?: { startTime: string; endTime: string; lateThresholdMins?: number; minDurationHours?: number };
+}) => {
+  return prisma.location.create({
+    data: {
+      name: data.name,
+      latitude: data.latitude,
+      longitude: data.longitude,
+      radiusMeters: data.radiusMeters,
+      ...(data.workingHours && {
+        workingHours: { create: data.workingHours },
+      }),
+    },
+    select: locationWithWorkingHoursSelect,
+  });
+};
+
+export const updateLocation = async (
+  locationId: string,
+  data: { name?: string; latitude?: number; longitude?: number; radiusMeters?: number; workingHours?: { startTime: string; endTime: string; lateThresholdMins?: number; minDurationHours?: number } }
+) => {
+  const existing = await prisma.location.findFirst({ where: { id: locationId, deletedAt: null } });
+  if (!existing) throw new Error('LOCATION_NOT_FOUND');
+
+  return prisma.location.update({
+    where: { id: locationId },
+    data: {
+      ...(data.name !== undefined && { name: data.name }),
+      ...(data.latitude !== undefined && { latitude: data.latitude }),
+      ...(data.longitude !== undefined && { longitude: data.longitude }),
+      ...(data.radiusMeters !== undefined && { radiusMeters: data.radiusMeters }),
+      ...(data.workingHours && {
+        workingHours: {
+          upsert: { create: data.workingHours, update: data.workingHours },
+        },
+      }),
+    },
+    select: locationWithWorkingHoursSelect,
+  });
+};
+
+export const softDeleteLocation = async (locationId: string) => {
+  const existing = await prisma.location.findFirst({ where: { id: locationId, deletedAt: null } });
+  if (!existing) throw new Error('LOCATION_NOT_FOUND');
+
+  await prisma.location.update({
+    where: { id: locationId },
+    data: { deletedAt: new Date() },
+  });
+};
+
 /**
  * Find nearest premise to user location
  */
