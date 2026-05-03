@@ -44,5 +44,8 @@
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.3.0"
   },
-  "private": true
+  "private": true,
+  "engines": {
+    "node": "20.x"
+  }
 }
