@@ -10,11 +10,18 @@ beforeAll(async () => {
   await cleanDatabase(prisma);
   const passwordHash = await bcrypt.hash('password123', 10);
   
-  const student = await prisma.user.create({
+  await prisma.user.create({
     data: { name: 'Student', email: 'student_dash@student.com', passwordHash, role: 'STUDENT' },
   });
 
-  const studentLogin = await request(app).post('/api/v1/auth/login').send({ email: 'student_dash@student.com', password: 'password123', deviceId: 'd2' });
+  const studentLogin = await request(app)
+    .post('/api/v1/auth/login')
+    .send({
+      email: 'student_dash@student.com',
+      password: 'password123',
+      deviceId: 'd2',
+    });
+
   studentToken = studentLogin.body.accessToken;
 });
 

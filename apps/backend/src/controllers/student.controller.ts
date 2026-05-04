@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { prisma } from '../utils/prisma';
+import { logger } from '../utils/logger';
 
 export const getDashboard = async (req: Request, res: Response) => {
   try {
@@ -58,7 +59,7 @@ export const getDashboard = async (req: Request, res: Response) => {
       unreadNotificationsCount
     });
   } catch (error) {
-    console.error('[Student Controller] getDashboard error:', error);
+    logger.error({ err: error }, 'getDashboard error');
     res.status(500).json({ error: 'INTERNAL_ERROR', message: 'An unexpected error occurred' });
   }
 };

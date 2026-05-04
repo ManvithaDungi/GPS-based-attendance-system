@@ -2,6 +2,7 @@ import { Worker, Job } from 'bullmq';
 import { createRedisConnection } from '../utils/redis';
 import { prisma } from '../utils/prisma';
 import { calculateHaversineDistance } from '../utils/haversine';
+import { logger } from '../utils/logger';
 
 /**
  * Fraud detection worker.
@@ -84,7 +85,7 @@ export const createFraudWorker = () => {
             details: { factors: riskFactors, logId },
           },
         });
-        console.log(`[Fraud] ${riskLevel} risk for user ${studentId}: ${riskFactors.join(', ')}`);
+        logger.warn({ studentId, riskLevel, riskFactors }, 'Fraud risk detected');
       }
     },
     {
@@ -94,7 +95,7 @@ export const createFraudWorker = () => {
   );
 
   worker.on('failed', (job, err) => {
-    console.error(`[Fraud Worker] Job ${job?.id} failed:`, err.message);
+    logger.error({ jobId: job?.id, err }, 'Fraud worker job failed');
   });
 
   return worker;

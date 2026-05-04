@@ -1,6 +1,7 @@
 import { Worker, Job } from 'bullmq';
 import { createRedisConnection } from '../utils/redis';
 import { prisma } from '../utils/prisma';
+import { logger } from '../utils/logger';
 
 /**
  * DailyStats aggregation worker.
@@ -46,7 +47,10 @@ export const createStatsWorker = () => {
         },
       });
 
-      console.log(`[Stats] Updated stats for ${date.toISOString().slice(0, 10)} at ${locationId}: P=${presentCount} A=${absentCount} L=${lateCount}`);
+      logger.info(
+        { date: date.toISOString().slice(0, 10), locationId, presentCount, absentCount, lateCount },
+        'Updated attendance stats'
+      );
     },
     {
       connection: createRedisConnection(),
@@ -55,7 +59,7 @@ export const createStatsWorker = () => {
   );
 
   worker.on('failed', (job, err) => {
-    console.error(`[Stats Worker] Job ${job?.id} failed:`, err.message);
+    logger.error({ jobId: job?.id, err }, 'Stats worker job failed');
   });
 
   return worker;

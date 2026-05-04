@@ -3,6 +3,7 @@ import { createRedisConnection } from '../utils/redis';
 import { prisma } from '../utils/prisma';
 import { emitNotification } from '../queues/emitter';
 import { getScheduledJobsQueue } from '../queues/index';
+import { logger } from '../utils/logger';
 
 /**
  * Midnight auto-close worker.
@@ -30,7 +31,7 @@ export const createAutoCloseWorker = () => {
       });
 
       if (pendingLogs.length === 0) {
-        console.log('[AutoClose] No pending logs to close');
+        logger.info('No pending logs to close');
         return;
       }
 
@@ -45,7 +46,7 @@ export const createAutoCloseWorker = () => {
         },
       });
 
-      console.log(`[AutoClose] Closed ${pendingLogs.length} pending logs as ABSENT`);
+      logger.info({ closedCount: pendingLogs.length }, 'Closed pending logs as ABSENT');
 
       // Fire absent notifications for each affected student
       for (const log of pendingLogs) {
@@ -64,7 +65,7 @@ export const createAutoCloseWorker = () => {
   );
 
   worker.on('failed', (job, err) => {
-    console.error(`[AutoClose Worker] Job ${job?.id} failed:`, err.message);
+    logger.error({ jobId: job?.id, err }, 'AutoClose worker job failed');
   });
 
   return worker;
@@ -78,7 +79,7 @@ export const registerAutoCloseCron = async (): Promise<void> => {
   try {
     const queue = getScheduledJobsQueue();
     if (!queue) {
-      console.log('[AutoClose] Redis not configured — skipping cron registration');
+      logger.info('Redis not configured — skipping cron registration');
       return;
     }
     await queue.add(
@@ -89,8 +90,8 @@ export const registerAutoCloseCron = async (): Promise<void> => {
         jobId: 'auto-close-daily',
       }
     );
-    console.log('[AutoClose] Midnight cron job registered');
+    logger.info('Midnight cron job registered');
   } catch (err) {
-    console.error('[AutoClose] Failed to register cron:', err);
+    logger.error({ err }, 'Failed to register cron');
   }
 };

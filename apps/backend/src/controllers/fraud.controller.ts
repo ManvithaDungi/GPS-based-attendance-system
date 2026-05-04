@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { prisma } from '../utils/prisma';
+import { logger } from '../utils/logger';
 
 export const getFraudLogs = async (req: Request, res: Response) => {
   try {
@@ -28,7 +29,7 @@ export const getFraudLogs = async (req: Request, res: Response) => {
       }
     });
   } catch (error) {
-    console.error('[Fraud Controller] getFraudLogs error:', error);
+    logger.error({ err: error }, 'getFraudLogs error');
     res.status(500).json({ error: 'INTERNAL_ERROR', message: 'An unexpected error occurred' });
   }
 };

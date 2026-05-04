@@ -1,4 +1,5 @@
 import { getAttendanceEventsQueue, getNotificationsQueue } from './index';
+import { logger } from '../utils/logger';
 
 interface CheckInEventData {
   logId: string;
@@ -38,7 +39,7 @@ export const emitCheckIn = async (data: CheckInEventData): Promise<void> => {
       jobId: `checkin-${data.logId}`,
     });
   } catch (err) {
-    console.error('[Queue] Failed to emit checkin event:', err);
+    logger.error({ err }, 'Failed to emit checkin event');
   }
 };
 
@@ -54,7 +55,7 @@ export const emitCheckOut = async (data: CheckOutEventData): Promise<void> => {
       jobId: `checkout-${data.logId}`,
     });
   } catch (err) {
-    console.error('[Queue] Failed to emit checkout event:', err);
+    logger.error({ err }, 'Failed to emit checkout event');
   }
 };
 
@@ -72,6 +73,6 @@ export const emitNotification = async (data: {
     if (!queue) return;
     await queue.add('send-notification', data);
   } catch (err) {
-    console.error('[Queue] Failed to emit notification:', err);
+    logger.error({ err }, 'Failed to emit notification');
   }
 };
