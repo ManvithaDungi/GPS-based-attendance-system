@@ -9,6 +9,7 @@ import geofenceRoutes from './routes/geofence.routes';
 import studentRoutes from './routes/student.routes';
 import notificationRoutes from './routes/notification.routes';
 import fraudRoutes from './routes/fraud.routes';
+import { errorHandler } from './middleware/error.middleware';
 
 const app: Express = express();
 
@@ -42,5 +43,8 @@ app.get('/favicon.ico', (req, res) => res.status(204).end());
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// Centralized error handling for uncaught route/middleware errors
+app.use(errorHandler);
 
 export default app;

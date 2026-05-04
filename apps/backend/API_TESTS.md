@@ -8,8 +8,8 @@ Run these commands first in your PowerShell session to initialize variables:
 
 ```powershell
 $BaseUrl = 'http://localhost:3000/api/v1'
-$AdminEmail = 'admin1@example.com'
-$AdminPassword = 'securepassword'
+$AdminEmail = 'admin@example.com'
+$AdminPassword = 'password123'
 $DeviceId = 'device-123-abc'
 ```
 
@@ -25,9 +25,9 @@ $loginResponse.refreshToken # Use this for refresh operations
 ### Register Admin
 ```powershell
 $body = @{
-    name = 'Admin User'
+    name = 'Test Admin'
     email = 'admin1@example.com'
-    password = 'securepassword'
+    password = 'password123'
     role = 'ADMIN'
 } | ConvertTo-Json -Compress
 

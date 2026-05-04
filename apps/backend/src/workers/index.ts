@@ -2,6 +2,7 @@ import { createFraudWorker } from './fraud.worker';
 import { createStatsWorker } from './stats.worker';
 import { createNotificationWorker } from './notification.worker';
 import { createAutoCloseWorker, registerAutoCloseCron } from './autoclose.worker';
+import { logger } from '../utils/logger';
 
 /**
  * Start all BullMQ workers.
@@ -16,7 +17,7 @@ export const startWorkers = async () => {
   // Register the midnight auto-close cron job
   await registerAutoCloseCron();
 
-  console.log('[Workers] All workers started: fraud, stats, notification, auto-close');
+  logger.info('All workers started: fraud, stats, notification, auto-close');
 
   return { fraudWorker, statsWorker, notificationWorker, autoCloseWorker };
 };
@@ -25,7 +26,7 @@ export const startWorkers = async () => {
 if (require.main === module) {
   require('dotenv/config');
   startWorkers().catch((err) => {
-    console.error('[Workers] Failed to start:', err);
+    logger.error({ err }, 'Failed to start workers');
     process.exit(1);
   });
 }

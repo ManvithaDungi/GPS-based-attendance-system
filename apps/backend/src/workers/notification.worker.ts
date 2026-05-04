@@ -1,6 +1,7 @@
 import { Worker, Job } from 'bullmq';
 import { createRedisConnection } from '../utils/redis';
 import { prisma } from '../utils/prisma';
+import { logger } from '../utils/logger';
 
 /**
  * Notification delivery worker.
@@ -30,7 +31,7 @@ export const createNotificationWorker = () => {
       //   await firebase.messaging().send({ token: user.fcmToken, notification: { title, body } });
       // }
 
-      console.log(`[Notification] Sent to ${userId}: [${type}] ${title}`);
+      logger.info({ userId, type, title }, 'Notification sent');
     },
     {
       connection: createRedisConnection(),
@@ -39,7 +40,7 @@ export const createNotificationWorker = () => {
   );
 
   worker.on('failed', (job, err) => {
-    console.error(`[Notification Worker] Job ${job?.id} failed:`, err.message);
+    logger.error({ jobId: job?.id, err }, 'Notification worker job failed');
   });
 
   return worker;

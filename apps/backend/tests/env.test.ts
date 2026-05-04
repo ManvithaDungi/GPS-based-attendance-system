@@ -3,8 +3,18 @@ describe('Required auth secrets', () => {
   const originalRefreshSecret = process.env.REFRESH_SECRET;
 
   afterEach(() => {
-    process.env.JWT_SECRET = originalJwtSecret;
-    process.env.REFRESH_SECRET = originalRefreshSecret;
+    if (originalJwtSecret === undefined) {
+      delete process.env.JWT_SECRET;
+    } else {
+      process.env.JWT_SECRET = originalJwtSecret;
+    }
+
+    if (originalRefreshSecret === undefined) {
+      delete process.env.REFRESH_SECRET;
+    } else {
+      process.env.REFRESH_SECRET = originalRefreshSecret;
+    }
+
     jest.resetModules();
   });
 

@@ -13,24 +13,43 @@ beforeAll(async () => {
 
   const passwordHash = await bcrypt.hash('password123', 10);
   
-  const admin = await prisma.user.create({
+  await prisma.user.create({
     data: { name: 'Admin', email: 'admin_geo@admin.com', passwordHash, role: 'ADMIN' },
   });
   
-  const student = await prisma.user.create({
+  await prisma.user.create({
     data: { name: 'Student', email: 'student_geo@student.com', passwordHash, role: 'STUDENT' },
   });
 
-  const adminLogin = await request(app).post('/api/v1/auth/login').send({ email: 'admin_geo@admin.com', password: 'password123', deviceId: 'd1' });
+  const adminLogin = await request(app)
+    .post('/api/v1/auth/login')
+    .send({
+      email: 'admin_geo@admin.com',
+      password: 'password123',
+      deviceId: 'd1',
+    });
+
   adminToken = adminLogin.body.accessToken;
 
-  const studentLogin = await request(app).post('/api/v1/auth/login').send({ email: 'student_geo@student.com', password: 'password123', deviceId: 'd2' });
+  const studentLogin = await request(app)
+    .post('/api/v1/auth/login')
+    .send({
+      email: 'student_geo@student.com',
+      password: 'password123',
+      deviceId: 'd2',
+    });
+
   studentToken = studentLogin.body.accessToken;
 
-  // Create an initial location
   const loc = await prisma.location.create({
-    data: { name: 'Initial Location', latitude: 10, longitude: 10, radiusMeters: 50 },
+    data: {
+      name: 'Initial Location',
+      latitude: 10,
+      longitude: 10,
+      radiusMeters: 50,
+    },
   });
+
   locationId = loc.id;
 });
 
@@ -99,6 +118,7 @@ describe('Geofence APIs', () => {
       const res = await request(app)
         .get('/api/v1/geofence/locations')
         .set('Authorization', `Bearer ${adminToken}`);
+
       expect(res.status).toBe(200);
       expect(res.body.data).toEqual([
         {
@@ -115,6 +135,7 @@ describe('Geofence APIs', () => {
       const res = await request(app)
         .get('/api/v1/geofence/locations')
         .set('Authorization', `Bearer ${studentToken}`);
+
       expect(res.status).toBe(200);
       expect(res.body.data).toHaveLength(1);
       expect(res.body.data[0].id).toBe(locationId);

@@ -65,3 +65,13 @@ export const authRateLimiter = createRateLimiter({
   keyGenerator: (req) => `ip:${req.ip}:auth`,
   message: 'Too many requests from this IP, please try again later.',
 });
+
+/**
+ * Strict limiter for login to reduce brute-force risk.
+ */
+export const loginRateLimiter = createRateLimiter({
+  windowMs: 15 * 60_000,
+  max: 10,
+  keyGenerator: (req) => `ip:${req.ip}:auth:login`,
+  message: 'Too many login attempts. Please try again later.',
+});
