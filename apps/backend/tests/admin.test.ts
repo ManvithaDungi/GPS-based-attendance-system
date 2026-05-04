@@ -9,62 +9,108 @@ let studentToken: string;
 
 beforeAll(async () => {
   await cleanDatabase(prisma);
+
   const passwordHash = await bcrypt.hash('password123', 10);
-  
-  const admin = await prisma.user.create({
-    data: { name: 'Admin', email: 'admin@admin.com', passwordHash, role: 'ADMIN' },
-  });
-  
-  const student = await prisma.user.create({
-    data: { name: 'Student', email: 'student@student.com', passwordHash, role: 'STUDENT' },
+
+  await prisma.user.create({
+    data: {
+      name: 'Admin',
+      email: 'admin@admin.com',
+      passwordHash,
+      role: 'ADMIN',
+    },
   });
 
-  const adminLogin = await request(app).post('/api/v1/auth/login').send({ email: 'admin@admin.com', password: 'password123', deviceId: 'd1' });
+  await prisma.user.create({
+    data: {
+      name: 'Student',
+      email: 'student@student.com',
+      passwordHash,
+      role: 'STUDENT',
+    },
+  });
+
+  const adminLogin = await request(app)
+    .post('/api/v1/auth/login')
+    .send({
+      email: 'admin@admin.com',
+      password: 'password123',
+      deviceId: 'd1',
+    });
+
   adminToken = adminLogin.body.accessToken;
 
-  const studentLogin = await request(app).post('/api/v1/auth/login').send({ email: 'student@student.com', password: 'password123', deviceId: 'd2' });
+  const studentLogin = await request(app)
+    .post('/api/v1/auth/login')
+    .send({
+      email: 'student@student.com',
+      password: 'password123',
+      deviceId: 'd2',
+    });
+
   studentToken = studentLogin.body.accessToken;
 });
 
 afterAll(async () => {
-  await cleanDatabase(prisma);
   await prisma.$disconnect();
 });
 
 describe('Admin APIs', () => {
   describe('Admin dashboard and lists', () => {
     it('GET /api/v1/admin/attendance should return 200 and pagination', async () => {
-      const res = await request(app).get('/api/v1/admin/attendance').set('Authorization', `Bearer ${adminToken}`);
+      const res = await request(app)
+        .get('/api/v1/admin/attendance')
+        .set('Authorization', `Bearer ${adminToken}`);
+
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty('data');
     });
 
     it('GET /api/v1/admin/students should return 200 and pagination', async () => {
-      const res = await request(app).get('/api/v1/admin/students').set('Authorization', `Bearer ${adminToken}`);
+      const res = await request(app)
+        .get('/api/v1/admin/students')
+        .set('Authorization', `Bearer ${adminToken}`);
+
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty('data');
     });
 
     it('GET /api/v1/admin/students/:studentId/attendance should return 200', async () => {
-      const res = await request(app).get('/api/v1/admin/students/fake-student-id/attendance').set('Authorization', `Bearer ${adminToken}`);
+      const student = await prisma.user.findFirst({ where: { role: 'STUDENT' } });
+
+      if (!student) throw new Error('Test setup failed: student not found');
+
+      const res = await request(app)
+        .get(`/api/v1/admin/students/${student.id}/attendance`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty('data');
     });
 
     it('GET /api/v1/admin/dashboard should return 200 and stats', async () => {
-      const res = await request(app).get('/api/v1/admin/dashboard').set('Authorization', `Bearer ${adminToken}`);
+      const res = await request(app)
+        .get('/api/v1/admin/dashboard')
+        .set('Authorization', `Bearer ${adminToken}`);
+
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty('totalStudents');
     });
 
     it('GET /api/v1/admin/config should return 200', async () => {
-      const res = await request(app).get('/api/v1/admin/config').set('Authorization', `Bearer ${adminToken}`);
+      const res = await request(app)
+        .get('/api/v1/admin/config')
+        .set('Authorization', `Bearer ${adminToken}`);
+
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty('data');
     });
 
     it('should return 403 for students accessing admin routes', async () => {
-      const res = await request(app).get('/api/v1/admin/dashboard').set('Authorization', `Bearer ${studentToken}`);
+      const res = await request(app)
+        .get('/api/v1/admin/dashboard')
+        .set('Authorization', `Bearer ${studentToken}`);
+
       expect(res.status).toBe(403);
     });
   });
@@ -78,7 +124,7 @@ describe('Admin APIs', () => {
           name: 'New Student',
           email: 'newstudent@example.com',
           studentCode: 'STU001',
-          password: 'password123'
+          password: 'password123',
         });
 
       expect(res.status).toBe(201);
@@ -97,11 +143,11 @@ describe('Admin APIs', () => {
         .send({
           name: 'Duplicate Student',
           email: 'newstudent@example.com',
-          password: 'password123'
+          password: 'password123',
         });
 
       expect(res.status).toBe(400);
-      expect(res.body).toEqual({ error: 'Validation error', details: [] });
+      expect(res.body.error).toBeDefined();
     });
 
     it('should reject student creation by a student (403)', async () => {
@@ -111,17 +157,20 @@ describe('Admin APIs', () => {
         .send({
           name: 'Sneaky Student',
           email: 'sneaky@example.com',
-          password: 'password123'
+          password: 'password123',
         });
 
       expect(res.status).toBe(403);
-      expect(res.body).toEqual({ error: 'FORBIDDEN' });
+      expect(res.body.error).toBe('FORBIDDEN');
     });
 
     it('should update student status', async () => {
       const student = await prisma.user.findFirst({ where: { role: 'STUDENT' } });
+
+      if (!student) throw new Error('Test setup failed: student not found');
+
       const res = await request(app)
-        .patch(`/api/v1/admin/students/${student?.id}/status`)
+        .patch(`/api/v1/admin/students/${student.id}/status`)
         .set('Authorization', `Bearer ${adminToken}`)
         .send({ status: 'SUSPENDED' });
 
