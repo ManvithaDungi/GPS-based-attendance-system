@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Sun, Moon, Bell, Settings } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import api from '../../lib/api';
 
 export const TopBar = () => {
-  const [isDark, setIsDark] = useState(document.documentElement.classList.contains('dark'));
+  const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') === 'dark');
+  const [profile, setProfile] = useState<{ name: string; role: string } | null>(null);
+  const profileInitial = (profile?.name || 'Admin').charAt(0).toUpperCase();
 
   useEffect(() => {
     if (isDark) {
@@ -14,6 +17,22 @@ export const TopBar = () => {
       localStorage.setItem('theme', 'light');
     }
   }, [isDark]);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const response = await api.get('/auth/me');
+        setProfile({
+          name: response.data.name ?? 'Admin',
+          role: response.data.role ?? 'ADMIN',
+        });
+      } catch (err) {
+        console.error('Error fetching profile', err);
+      }
+    };
+
+    fetchProfile();
+  }, []);
 
   return (
     <header className="fixed top-0 right-0 w-[calc(100%-16rem)] h-20 bg-bg-light/80 dark:bg-bg-dark/80 backdrop-blur-md z-40 flex justify-between items-center px-8">
@@ -49,15 +68,11 @@ export const TopBar = () => {
 
         <div className="flex items-center gap-3">
           <div className="text-right hidden sm:block">
-            <p className="text-sm font-bold text-slate-800 dark:text-slate-100 leading-none">Alex Rivera</p>
-            <p className="text-[10px] text-slate-500 font-medium mt-1">Head Administrator</p>
+            <p className="text-sm font-bold text-slate-800 dark:text-slate-100 leading-none">{profile?.name ?? 'Admin'}</p>
+            <p className="text-[10px] text-slate-500 font-medium mt-1">{profile?.role ?? 'ADMIN'}</p>
           </div>
-          <div className="w-10 h-10 rounded-xl overflow-hidden neumorphic-raised">
-            <img 
-              src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=100&h=100" 
-              alt="Profile" 
-              className="w-full h-full object-cover"
-            />
+          <div className="w-10 h-10 rounded-xl neumorphic-raised bg-primary/10 text-primary flex items-center justify-center font-black">
+            {profileInitial}
           </div>
         </div>
       </div>

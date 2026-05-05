@@ -4,10 +4,10 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   ActivityIndicator,
   Platform,
   Alert,
+  TouchableOpacity,
 } from 'react-native';
 import { GeofenceMap } from '../../components/GeofenceMap';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -122,6 +122,8 @@ export const HomeScreen: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [timer, setTimer] = useState('00:00:00');
+  // FIX: track whether user has tapped the map to enable map interaction
+  const [mapInteractive, setMapInteractive] = useState(false);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const locationRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -342,12 +344,9 @@ export const HomeScreen: React.FC = () => {
   })();
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: themeColors.background }]}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-    >
+    <View style={[styles.container, styles.content, { backgroundColor: themeColors.background }]}> 
       <AppHeader />
+
       {/* ── Map Section ───────────────────────────────────────────────────── */}
       <View style={styles.mapWrapper}>
         <View
@@ -364,11 +363,14 @@ export const HomeScreen: React.FC = () => {
               </Text>
             </View>
           ) : (
-            <GeofenceMap
-              userLocation={userLocation}
-              geofenceLocation={geofenceLocation}
-              isWithinGeofence={isWithinGeofence}
-            />
+            <View style={{ flex: 1 }} pointerEvents={mapInteractive ? 'auto' : 'none'}>
+              <GeofenceMap
+                userLocation={userLocation}
+                geofenceLocation={geofenceLocation}
+                isWithinGeofence={isWithinGeofence}
+                interactive={mapInteractive}
+              />
+            </View>
           )}
 
           {/* Distance tag */}
@@ -390,6 +392,27 @@ export const HomeScreen: React.FC = () => {
                   : geofenceLocation?.name ?? 'Locating...'}
               </Text>
             </View>
+          )}
+
+          {!isLoading && !mapInteractive && (
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={styles.mapHint}
+              onPress={() => setMapInteractive(true)}
+            >
+              <MaterialCommunityIcons name="gesture-tap" size={14} color="#fff" />
+              <Text style={styles.mapHintText}>Interact</Text>
+            </TouchableOpacity>
+          )}
+
+          {!isLoading && mapInteractive && (
+            <TouchableOpacity
+              style={styles.mapDismiss}
+              onPress={() => setMapInteractive(false)}
+            >
+              <MaterialCommunityIcons name="close-circle" size={18} color="#fff" />
+              <Text style={styles.mapDismissText}>Done</Text>
+            </TouchableOpacity>
           )}
 
           {locationError && (
@@ -448,25 +471,24 @@ export const HomeScreen: React.FC = () => {
           </Text>
         </NeumorphicCard>
       )}
-    </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { padding: 24, gap: 24 },
+  content: { padding: 24, paddingTop: 0, gap: 12 },
   mapWrapper: {
     alignItems: 'center',
   },
 
   mapContainer: {
-    width: '90%',            // ✅ smaller width
-    height: 320,            // slightly reduced height
+    width: '88%',
+    height: 220,
     borderRadius: 28,
     padding: 8,
     overflow: 'hidden',
 
-    // neumorphic shadow (matches cards)
     shadowColor: '#000',
     shadowOffset: { width: 6, height: 6 },
     shadowOpacity: 0.15,
@@ -482,6 +504,36 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   loadingText: { fontSize: 13, fontWeight: '600' },
+
+  mapHint: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  mapHintText: { fontSize: 11, fontWeight: '600', color: '#fff' },
+
+  // Dismiss button shown when map is interactive
+  mapDismiss: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  mapDismissText: { fontSize: 11, fontWeight: '700', color: '#fff' },
+
   locationTag: {
     position: 'absolute',
     top: 24,
@@ -508,10 +560,10 @@ const styles = StyleSheet.create({
   },
   errorText: { fontSize: 10, fontWeight: '700', color: '#9B2C2C', flex: 1 },
   buttonSection: { alignItems: 'center' },
-  statsGrid: { flexDirection: 'row', gap: 12 },
+  statsGrid: { flexDirection: 'row', gap: 8 },
   statCard: {
     flex: 1,
-    height: 90,
+    height: 70,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,

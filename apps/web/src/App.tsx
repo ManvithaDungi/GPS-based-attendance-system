@@ -15,9 +15,10 @@ import { Logs } from './pages/Logs';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const token = localStorage.getItem('accessToken');
+  const role = localStorage.getItem('userRole');
   const location = useLocation();
 
-  if (!token) {
+  if (!token || role !== 'ADMIN') {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
@@ -38,7 +39,7 @@ export default function App() {
   // Set initial theme
   useEffect(() => {
     const theme = localStorage.getItem('theme') || 'light';
-    if (theme === 'dark') document.documentElement.classList.add('dark');
+    document.documentElement.classList.toggle('dark', theme === 'dark');
   }, []);
 
   return (

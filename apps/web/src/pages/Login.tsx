@@ -17,8 +17,15 @@ export const Login = () => {
     setError('');
 
     try {
-      const response = await api.post('/auth/login', { email, password });
+      const deviceId = `web-admin-${navigator.userAgent}`;
+      const response = await api.post('/auth/login', { email, password, deviceId });
+      if (response.data.user?.role !== 'ADMIN') {
+        setError('Admin access is required for this portal');
+        return;
+      }
       localStorage.setItem('accessToken', response.data.accessToken);
+      localStorage.setItem('refreshToken', response.data.refreshToken);
+      localStorage.setItem('userRole', response.data.user.role);
       navigate('/');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Login failed');

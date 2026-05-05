@@ -7,7 +7,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 
 interface StatusBadgeProps {
-  status: 'PRESENT' | 'ABSENT' | 'LATE' | 'ACTIVE' | 'NONE';
+  status: 'PRESENT' | 'ABSENT' | 'LATE' | 'PENDING' | 'ACTIVE' | 'NONE';
 }
 
 export const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
@@ -19,6 +19,8 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
         return { bg: '#FF3B301A', text: '#FF3B30', border: '#FF3B3033' };
       case 'LATE':
         return { bg: '#FF9F0A1A', text: '#FF9F0A', border: '#FF9F0A33' };
+      case 'PENDING':
+        return { bg: '#4F8EF71A', text: '#4F8EF7', border: '#4F8EF733' };
       case 'ACTIVE':
         return { bg: '#34C7591A', text: '#34C759', border: '#34C75933' };
       case 'NONE':

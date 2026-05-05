@@ -21,6 +21,8 @@ const menuItems = [
 export const Sidebar = () => {
   const handleLogout = () => {
     localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('userRole');
     window.location.href = '/login';
   };
 

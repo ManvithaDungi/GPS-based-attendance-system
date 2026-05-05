@@ -1,7 +1,11 @@
 import React from 'react';
 import { cn } from '../../lib/utils';
 
-interface NeumorphicCardProps extends React.ComponentPropsWithoutRef<'div'> {
+interface NeumorphicCardProps {
+  children?: React.ReactNode;
+  className?: string;
+  key?: React.Key;
+  onClick?: React.MouseEventHandler<HTMLDivElement>;
   variant?: 'raised' | 'inset';
 }
 

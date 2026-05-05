@@ -1,14 +1,17 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
 
+declare const google: any;
+
 interface Props {
   userLocation?: { latitude: number; longitude: number } | null;
   geofenceLocation?: { name: string; latitude: number; longitude: number; radiusMeters: number } | null;
   isWithinGeofence?: boolean;
+  interactive?: boolean;
 }
 
 // ─── Native: use react-native-maps ───────────────────────────────────────────
-const NativeMap = ({ userLocation, geofenceLocation, isWithinGeofence }: Props) => {
+const NativeMap = ({ userLocation, geofenceLocation, isWithinGeofence, interactive = false }: Props) => {
   // Lazy import so web bundle never touches react-native-maps
   const MapView = require('react-native-maps').default;
   const { Circle, Marker } = require('react-native-maps');
@@ -27,6 +30,10 @@ const NativeMap = ({ userLocation, geofenceLocation, isWithinGeofence }: Props) 
       region={region}
       showsUserLocation
       showsMyLocationButton={false}
+      scrollEnabled={interactive}
+      zoomEnabled={interactive}
+      rotateEnabled={interactive}
+      pitchEnabled={interactive}
     >
       {geofenceLocation && (
         <>
@@ -49,10 +56,10 @@ const NativeMap = ({ userLocation, geofenceLocation, isWithinGeofence }: Props) 
 };
 
 // ─── Web: use Google Maps JS API directly ─────────────────────────────────────
-const WebMap = ({ userLocation, geofenceLocation, isWithinGeofence }: Props) => {
+const WebMap = ({ userLocation, geofenceLocation, isWithinGeofence, interactive = false }: Props) => {
   const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<google.maps.Map | null>(null);
-  const circleRef = useRef<google.maps.Circle | null>(null);
+  const mapInstanceRef = useRef<any>(null);
+  const circleRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
   const userMarkerRef = useRef<any>(null);
 
@@ -101,7 +108,11 @@ const WebMap = ({ userLocation, geofenceLocation, isWithinGeofence }: Props) => 
       center,
       zoom: 17,
       disableDefaultUI: true,
-      zoomControl: true,
+      zoomControl: interactive,
+      draggable: interactive,
+      gestureHandling: interactive ? 'auto' : 'none',
+      scrollwheel: interactive,
+      disableDoubleClickZoom: !interactive,
       mapId: process.env.EXPO_PUBLIC_GOOGLE_MAPS_ID || 'DEMO_MAP_ID',
       styles: [
         { featureType: 'poi', stylers: [{ visibility: 'off' }] },
@@ -189,6 +200,18 @@ const WebMap = ({ userLocation, geofenceLocation, isWithinGeofence }: Props) => 
     updateOverlays();
   }, [geofenceLocation, userLocation, isWithinGeofence]);
 
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+
+    mapInstanceRef.current.setOptions({
+      zoomControl: interactive,
+      draggable: interactive,
+      gestureHandling: interactive ? 'auto' : 'none',
+      scrollwheel: interactive,
+      disableDoubleClickZoom: !interactive,
+    });
+  }, [interactive]);
+
   return (
     <div
       ref={mapRef}
@@ -198,19 +221,21 @@ const WebMap = ({ userLocation, geofenceLocation, isWithinGeofence }: Props) => 
         height: '100%',
         borderRadius: 24,
         overflow: 'hidden',
+        pointerEvents: interactive ? 'auto' : 'none',
       }}
     />
   );
 };
 
 // ─── Exported component — picks correct implementation per platform ────────────
-export const GeofenceMap = ({ userLocation, geofenceLocation, isWithinGeofence }: Props) => {
+export const GeofenceMap = ({ userLocation, geofenceLocation, isWithinGeofence, interactive = false }: Props) => {
   if (Platform.OS !== 'web') {
     return (
       <NativeMap
         userLocation={userLocation}
         geofenceLocation={geofenceLocation}
         isWithinGeofence={isWithinGeofence}
+        interactive={interactive}
       />
     );
   }
@@ -220,6 +245,7 @@ export const GeofenceMap = ({ userLocation, geofenceLocation, isWithinGeofence }
       userLocation={userLocation}
       geofenceLocation={geofenceLocation}
       isWithinGeofence={isWithinGeofence}
+      interactive={interactive}
     />
   );
 };

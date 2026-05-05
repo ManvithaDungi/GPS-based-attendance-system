@@ -74,16 +74,16 @@ export const CheckInButton: React.FC<CheckInButtonProps> = ({ status, onPress, i
         ) : (
           <View style={styles.content}>
             <View style={[styles.iconContainer, { backgroundColor: config.color + '15' }]}>
-              <MaterialCommunityIcons name={config.icon as any} size={48} color={config.color} />
+              <MaterialCommunityIcons name={config.icon as any} size={32} color={config.color} />
             </View>
-            <Text style={[styles.buttonText, { color: config.color }]}>
+            <Text style={[styles.buttonText, { color: config.color }]}> 
               {config.text}
             </Text>
           </View>
         )}
       </TouchableOpacity>
       
-      <Text style={[styles.statusHint, { color: themeColors.textSecondary }]}>
+      <Text style={[styles.statusHint, { color: themeColors.textSecondary }]}> 
         {status === 'outside' ? 'Not in Zone' : 'Inside designated attendance zone'}
       </Text>
     </View>
@@ -96,9 +96,9 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   button: {
-    width: 180,
-    height: 180,
-    borderRadius: 90,
+    width: 130,
+    height: 130,
+    borderRadius: 65,
     justifyContent: 'center',
     alignItems: 'center',
     // shadow handled dynamically in render
@@ -108,15 +108,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   iconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
   },
   buttonText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '900',
     letterSpacing: -0.5,
   },
