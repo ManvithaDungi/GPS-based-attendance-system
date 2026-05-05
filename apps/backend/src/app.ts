@@ -14,8 +14,13 @@ import { errorHandler } from './middleware/error.middleware';
 const app: Express = express();
 
 // Middleware
+// app.ts
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 app.use(helmet());
-app.use(cors());
 app.use(express.json());
 
 // Routes

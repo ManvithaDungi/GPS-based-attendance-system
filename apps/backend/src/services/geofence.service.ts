@@ -87,6 +87,14 @@ export const getActiveLocations = async () => {
       latitude: true,
       longitude: true,
       radiusMeters: true,
+      workingHours: {
+        select: {
+          startTime: true,
+          endTime: true,
+          lateThresholdMins: true,
+          minDurationHours: true,
+        },
+      },
     },
     orderBy: { name: 'asc' },
   });
