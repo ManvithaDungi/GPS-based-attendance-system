@@ -127,12 +127,12 @@ export const ProfileScreen: React.FC = () => {
         </NeumorphicCard>
       </View>
 
-      <TouchableOpacity onPress={handleLogout} style={styles.logoutWrapper}>
-        <NeumorphicButton style={styles.logoutButton}>
+      <View style={styles.logoutWrapper}>
+        <NeumorphicButton onPress={handleLogout} style={styles.logoutButton}>
           <MaterialCommunityIcons name="logout" size={20} color={colors.light.error} />
           <Text style={[styles.logoutText, { color: colors.light.error }]}>Sign Out</Text>
         </NeumorphicButton>
-      </TouchableOpacity>
+      </View>
 
       <Text style={[styles.version, { color: themeColors.textSecondary }]}>InDaZone Premium v1.0.4</Text>
     </ScrollView>

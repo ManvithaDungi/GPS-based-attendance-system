@@ -4,7 +4,7 @@
  */
 
 import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { StorageService } from '../utils/storage';
 import Constants from 'expo-constants';
 
 import { Platform, DeviceEventEmitter } from 'react-native';
@@ -42,7 +42,7 @@ export const setAuthToken = (token: string | null) => {
 };
 
 api.interceptors.request.use(async (config) => {
-  const token = await AsyncStorage.getItem('accessToken');
+  const token = await StorageService.getItem('accessToken');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -59,22 +59,22 @@ api.interceptors.response.use(
       originalRequest._retry = true;
       
       try {
-        const refreshToken = await AsyncStorage.getItem('refreshToken');
+        const refreshToken = await StorageService.getItem('refreshToken');
         if (!refreshToken) throw new Error('No refresh token');
         
         const response = await axios.post(`${BASE_URL}/auth/refresh`, { refreshToken });
         const { accessToken } = response.data;
         
-        await AsyncStorage.setItem('accessToken', accessToken);
+        await StorageService.setItem('accessToken', accessToken);
         setAuthToken(accessToken);
         
         originalRequest.headers['Authorization'] = `Bearer ${accessToken}`;
         return api(originalRequest);
       } catch (refreshError) {
         // Handle failed refresh (log out)
-        await AsyncStorage.removeItem('accessToken');
-        await AsyncStorage.removeItem('refreshToken');
-        await AsyncStorage.removeItem('user');
+        await StorageService.removeItem('accessToken');
+        await StorageService.removeItem('refreshToken');
+        await StorageService.removeItem('user');
         setAuthToken(null);
         DeviceEventEmitter.emit('auth:logout');
         return Promise.reject(refreshError);

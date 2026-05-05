@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { StorageService } from '../utils/storage';
 import { DeviceEventEmitter } from 'react-native';
 import { api, setAuthToken } from '../services/api';
 
@@ -31,11 +31,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const [accessToken, setAccessToken] = useState<string | null>(null);
 
+  // Define logout first — useEffect below depends on it
+  const logout = useCallback(async () => {
+    // Call logout API first while token is still active
+    try {
+      const refreshToken = await StorageService.getItem('refreshToken');
+      if (refreshToken) {
+        await api.post('/auth/logout', { refreshToken });
+      }
+    } catch (e) {
+      console.error('Logout API failed', e);
+    }
+    
+    // Clear state and storage after
+    setAccessToken(null);
+    setAuthToken(null);
+    setUser(null);
+    
+    await StorageService.removeItem('accessToken');
+    await StorageService.removeItem('refreshToken');
+    await StorageService.removeItem('user');
+  }, []);
+
+  const login = async (token: string, refreshToken: string, userData: User) => {
+    setAccessToken(token);
+    setAuthToken(token);
+    setUser(userData);
+    await StorageService.setItem('accessToken', token);
+    await StorageService.setItem('refreshToken', refreshToken);
+    await StorageService.setItem('user', JSON.stringify(userData));
+  };
+
   useEffect(() => {
     const initAuth = async () => {
       try {
-        const token = await AsyncStorage.getItem('accessToken');
-        const userData = await AsyncStorage.getItem('user');
+        const token = await StorageService.getItem('accessToken');
+        const userData = await StorageService.getItem('user');
         
         if (token && userData) {
           setAccessToken(token);
@@ -49,45 +80,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
     initAuth();
-
-    const listener = DeviceEventEmitter.addListener('auth:logout', () => {
-      logout();
-    });
-    return () => listener.remove();
   }, []);
 
-  const login = async (token: string, refreshToken: string, userData: User) => {
-    setAccessToken(token);
-    setAuthToken(token);
-    setUser(userData);
-    await AsyncStorage.setItem('accessToken', token);
-    await AsyncStorage.setItem('refreshToken', refreshToken);
-    await AsyncStorage.setItem('user', JSON.stringify(userData));
-  };
-
-  const logout = async () => {
-    setAccessToken(null);
-    setAuthToken(null);
-    setUser(null);
-    
-    // Call logout API
-    try {
-      const refreshToken = await AsyncStorage.getItem('refreshToken');
-      if (refreshToken) {
-        await api.post('/auth/logout', { refreshToken });
-      }
-    } catch (e) {
-      console.error('Logout API failed', e);
-    }
-    
-    await AsyncStorage.removeItem('accessToken');
-    await AsyncStorage.removeItem('refreshToken');
-    await AsyncStorage.removeItem('user');
-  };
+  useEffect(() => {
+    const listener = DeviceEventEmitter.addListener('auth:logout', logout);
+    return () => listener.remove();
+  }, [logout]);
 
   const refreshAuth = async () => {
     try {
-      const refreshToken = await AsyncStorage.getItem('refreshToken');
+      const refreshToken = await StorageService.getItem('refreshToken');
       if (!refreshToken) throw new Error('No refresh token');
       
       const response = await api.post('/auth/refresh', { refreshToken });
@@ -95,8 +97,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       setAccessToken(newToken);
       setAuthToken(newToken);
-      await AsyncStorage.setItem('accessToken', newToken);
-      await AsyncStorage.setItem('refreshToken', newRefreshToken);
+      await StorageService.setItem('accessToken', newToken);
+      await StorageService.setItem('refreshToken', newRefreshToken);
     } catch (e) {
       await logout();
     }
