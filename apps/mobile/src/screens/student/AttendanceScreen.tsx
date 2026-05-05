@@ -10,7 +10,7 @@ import {
   StyleSheet, 
   ScrollView, 
   ActivityIndicator,
-  FlatList
+  TouchableOpacity
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
@@ -18,13 +18,18 @@ import { colors } from '../../theme/colors';
 import { NeumorphicCard } from '../../components/NeumorphicCard';
 import { StatusBadge } from '../../components/StatusBadge';
 import { api } from '../../services/api';
+import { AttendanceCalendar } from '../../components/AttendanceCalendar';
 
 export const AttendanceScreen: React.FC = () => {
   const { theme } = useTheme();
   const themeColors = colors[theme];
+
   const [history, setHistory] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+  const [selectedDate, setSelectedDate] = useState<any>(null);
 
   useEffect(() => {
     fetchData();
@@ -33,16 +38,24 @@ export const AttendanceScreen: React.FC = () => {
   const fetchData = async () => {
     try {
       const [historyRes, statsRes] = await Promise.all([
-        api.get('/attendance/history?page=1&limit=10'),
+        api.get('/attendance/history?page=1&limit=30'),
         api.get('/attendance/summary')
       ]);
-      setHistory(historyRes.data.data || []);
+      const data = historyRes.data.data || [];
+      setHistory(data);
       setStats(statsRes.data);
     } catch (e) {
       console.error('Failed to fetch attendance data', e);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const formatDuration = (hours?: number) => {
+    if (!hours) return '--';
+    const h = Math.floor(hours);
+    const m = Math.round((hours - h) * 60);
+    return `${h}h ${m}m`;
   };
 
   if (isLoading) {
@@ -55,129 +68,177 @@ export const AttendanceScreen: React.FC = () => {
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: themeColors.background }]} contentContainerStyle={styles.content}>
-      {/* Stats Summary */}
-      <View style={styles.statsGrid}>
-        <NeumorphicCard style={styles.statCard}>
-          <Text style={[styles.statValue, { color: colors.light.success }]}>{stats?.presentDays || 0}</Text>
-          <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>PRESENT</Text>
-        </NeumorphicCard>
-        <NeumorphicCard style={styles.statCard}>
-          <Text style={[styles.statValue, { color: colors.light.error }]}>{stats?.absentDays || 0}</Text>
-          <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>ABSENT</Text>
-        </NeumorphicCard>
-        <NeumorphicCard style={styles.statCard}>
-          <Text style={[styles.statValue, { color: colors.light.warning }]}>{stats?.lateDays || 0}</Text>
-          <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>LATE</Text>
-        </NeumorphicCard>
+      
+      {/* HEADER WITH TOGGLE */}
+      <View style={styles.header}>
+        {/* ✅ FIX: dynamic title */}
+        <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
+          {viewMode === 'list' ? 'Daily Attendance' : 'Attendance Calendar'}
+        </Text>
+
+        <View style={styles.toggle}>
+          <TouchableOpacity onPress={() => setViewMode('list')}>
+            <MaterialCommunityIcons 
+              name="format-list-bulleted" 
+              size={22} 
+              color={viewMode === 'list' ? '#4F8EF7' : themeColors.textSecondary} 
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => setViewMode('calendar')}>
+            <MaterialCommunityIcons 
+              name="calendar-month" 
+              size={22} 
+              color={viewMode === 'calendar' ? '#4F8EF7' : themeColors.textSecondary} 
+            />
+          </TouchableOpacity>
+        </View>
       </View>
 
-      <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Recent Activity</Text>
+      {/* LIST VIEW */}
+      {viewMode === 'list' && (
+        <>
+          <View style={styles.statsGrid}>
+            <NeumorphicCard style={styles.statCard}>
+              <Text style={[styles.statValue, { color: colors.light.success }]}>
+                {stats?.presentDays || 0}
+              </Text>
+              <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>
+                PRESENT
+              </Text>
+            </NeumorphicCard>
 
-      {history.map((item, index) => (
-        <NeumorphicCard key={item.id || index} style={styles.historyCard}>
-          <View style={styles.cardHeader}>
-            <View>
-              <Text style={[styles.dateText, { color: themeColors.text }]}>
-                {new Date(item.date).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+            <NeumorphicCard style={styles.statCard}>
+              <Text style={[styles.statValue, { color: colors.light.error }]}>
+                {stats?.absentDays || 0}
               </Text>
-              <Text style={[styles.dayText, { color: themeColors.textSecondary }]}>
-                {new Date(item.date).toLocaleDateString('en-US', { weekday: 'long' })}
+              <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>
+                ABSENT
               </Text>
-            </View>
-            <StatusBadge status={item.status} />
+            </NeumorphicCard>
+
+            <NeumorphicCard style={styles.statCard}>
+              <Text style={[styles.statValue, { color: colors.light.warning }]}>
+                {stats?.lateDays || 0}
+              </Text>
+              <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>
+                LATE
+              </Text>
+            </NeumorphicCard>
           </View>
-          
-          <View style={styles.divider} />
-          
-          <View style={styles.cardFooter}>
-            <View style={styles.timeInfo}>
-              <MaterialCommunityIcons name="clock-in" size={14} color={themeColors.outline} />
-              <Text style={[styles.timeText, { color: themeColors.textSecondary }]}>
-                IN: {item.checkInTime ? new Date(item.checkInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
+
+          {history.map((item, index) => (
+            <NeumorphicCard key={item.id || index} style={styles.historyCard}>
+              <View style={styles.cardHeader}>
+                <View>
+                  <Text style={[styles.dateText, { color: themeColors.text }]}>
+                    {new Date(item.date).toDateString()}
+                  </Text>
+                </View>
+                <StatusBadge status={item.status} />
+              </View>
+
+              <View style={styles.divider} />
+
+              <View style={styles.cardFooter}>
+                <Text>
+                  IN: {item.checkInTime ? new Date(item.checkInTime).toLocaleTimeString() : '--'}
+                </Text>
+                <Text>
+                  OUT: {item.checkOutTime ? new Date(item.checkOutTime).toLocaleTimeString() : '--'}
+                </Text>
+              </View>
+            </NeumorphicCard>
+          ))}
+        </>
+      )}
+
+      {/* CALENDAR VIEW */}
+      {viewMode === 'calendar' && (
+        <>
+          {/* ✅ CALENDAR COMPONENT */}
+          <AttendanceCalendar
+            history={history}
+            themeColors={themeColors}
+            onSelectDate={(data) => setSelectedDate(data)}
+          />
+
+          {/* ✅ SELECTED DAY DETAILS */}
+          {selectedDate && (
+            <NeumorphicCard style={styles.detailCard}>
+              <Text style={{ fontWeight: '800' }}>
+                {new Date(selectedDate.date).toDateString()}
               </Text>
-            </View>
-            <View style={styles.timeInfo}>
-              <MaterialCommunityIcons name="clock-out" size={14} color={themeColors.outline} />
-              <Text style={[styles.timeText, { color: themeColors.textSecondary }]}>
-                OUT: {item.checkOutTime ? new Date(item.checkOutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
+
+              <Text>
+                Check-in: {selectedDate.checkInTime ? new Date(selectedDate.checkInTime).toLocaleTimeString() : '--'}
               </Text>
-            </View>
-          </View>
-        </NeumorphicCard>
-      ))}
+
+              <Text>
+                Check-out: {selectedDate.checkOutTime ? new Date(selectedDate.checkOutTime).toLocaleTimeString() : '--'}
+              </Text>
+
+              <Text>
+                Duration: {formatDuration(selectedDate.durationHours)}
+              </Text>
+
+              <StatusBadge status={selectedDate.status} />
+            </NeumorphicCard>
+          )}
+        </>
+      )}
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  centered: {
-    justifyContent: 'center',
+  container: { flex: 1 },
+  centered: { justifyContent: 'center', alignItems: 'center' },
+  content: { padding: 24, gap: 20 },
+
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
-  content: {
-    padding: 24,
-    gap: 24,
-  },
-  statsGrid: {
+
+  toggle: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 16,
   },
+
+  statsGrid: { flexDirection: 'row', gap: 12 },
+
   statCard: {
     flex: 1,
     height: 100,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 4,
   },
-  statValue: {
-    fontSize: 24,
-    fontWeight: '900',
-  },
-  statLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-    marginTop: 8,
-  },
-  historyCard: {
-    padding: 16,
-    gap: 12,
-  },
+
+  statValue: { fontSize: 24, fontWeight: '900' },
+  statLabel: { fontSize: 10 },
+
+  sectionTitle: { fontSize: 18, fontWeight: '900' },
+
+  historyCard: { padding: 16, gap: 10 },
+
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
   },
-  dateText: {
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  dayText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: 'rgba(0,0,0,0.05)',
-  },
+
+  dateText: { fontWeight: '800' },
+
+  divider: { height: 1, backgroundColor: '#eee' },
+
   cardFooter: {
     flexDirection: 'row',
-    gap: 20,
+    justifyContent: 'space-between',
   },
-  timeInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+
+  detailCard: {
+    padding: 16,
+    gap: 8,
   },
-  timeText: {
-    fontSize: 12,
-    fontWeight: '600',
-  }
 });

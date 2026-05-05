@@ -179,7 +179,7 @@ export const checkIn = async (req: Request, res: Response): Promise<Response> =>
       userId: req.user!.id,
       type: 'success',
       title: 'Check-in Successful',
-      body: `Your attendance has been recorded successfully at ${reqTimestamp.toLocaleTimeString()}`,
+      body: `Your attendance has been recorded successfully at ${log.checkInTime!.toISOString()}`,
     });
 
     return res.status(200).json({
@@ -255,7 +255,7 @@ export const checkOut = async (req: Request, res: Response): Promise<Response> =
       userId: req.user!.id,
       type: 'success',
       title: 'Check-out Successful',
-      body: `You successfully checked out at ${reqTimestamp.toLocaleTimeString()}`,
+      body: `You successfully checked out at ${log.checkOutTime!.toISOString()}`,
     });
 
     return res.status(200).json({

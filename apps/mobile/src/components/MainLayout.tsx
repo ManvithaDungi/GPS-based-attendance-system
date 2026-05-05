@@ -7,13 +7,11 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { HomeScreen } from '../screens/student/HomeScreen';
-import { Platform } from 'react-native';
 import { AttendanceScreen } from '../screens/student/AttendanceScreen';
 import { NotificationsScreen } from '../screens/student/NotificationsScreen';
 import { ProfileScreen } from '../screens/student/ProfileScreen';
 import { useTheme } from '../context/ThemeContext';
 import { colors } from '../theme/colors';
-import { shadow } from '../utils/styles';
 
 const Tab = createBottomTabNavigator();
 
@@ -25,35 +23,53 @@ export const MainLayout: React.FC = () => {
     <Tab.Navigator
       id="tabs"
       screenOptions={({ route }) => ({
-        headerShown: true,
-        headerStyle: {
-          backgroundColor: themeColors.background,
-          elevation: 0,
-          shadowOpacity: 0,
-          borderBottomWidth: 0,
-        },
-        headerTitleStyle: {
-          fontSize: 20,
-          fontWeight: '900',
-          color: themeColors.text,
-        },
+
+        // ❌ REMOVE default header (this was causing double layout)
+        headerShown: false,
+
+        // ✅ FIX: floating tab bar
         tabBarStyle: {
+          position: 'absolute',
+          left: 20,
+          right: 20,
+          bottom: 20,
+          height: 65,
+          borderRadius: 20,
           backgroundColor: themeColors.surface,
           borderTopWidth: 0,
-          height: 70,
-          paddingBottom: 12,
-          paddingTop: 12,
-          ...shadow(themeColors.shadowDark, { x: 0, y: -4 }, 0.1, 10, 5),
+          paddingBottom: 8,
+          paddingTop: 8,
+
+          shadowColor: '#000',
+          shadowOffset: { width: 6, height: 6 },
+          shadowOpacity: 0.15,
+          shadowRadius: 10,
+          elevation: 10,
         },
+
         tabBarActiveTintColor: colors.light.success,
         tabBarInactiveTintColor: themeColors.textSecondary,
-        tabBarIcon: ({ color, size }) => {
+
+        // ✅ icon logic
+        tabBarIcon: ({ color }) => {
           let iconName: keyof typeof MaterialCommunityIcons.glyphMap = 'home';
+
           if (route.name === 'Home') iconName = 'home';
           else if (route.name === 'Attendance') iconName = 'calendar-check';
           else if (route.name === 'Notifications') iconName = 'bell';
           else if (route.name === 'Profile') iconName = 'account-circle';
-          return <MaterialCommunityIcons name={iconName} size={size + 4} color={color} />;
+
+          return <MaterialCommunityIcons name={iconName} size={22} color={color} />;
+        },
+
+        // ✅ FIX label clipping
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '600',
+        },
+
+        tabBarItemStyle: {
+          paddingVertical: 4,
         },
       })}
     >

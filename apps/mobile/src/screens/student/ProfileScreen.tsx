@@ -4,12 +4,12 @@
  */
 
 import React from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
-  TouchableOpacity, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
   Image,
   Alert,
   Platform
@@ -20,6 +20,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { colors } from '../../theme/colors';
 import { NeumorphicCard, NeumorphicButton } from '../../components/NeumorphicCard';
 import { api } from '../../services/api';
+import { ConfirmModal } from '../../components/ConfirmModal'; // ✅ FIXED
 
 export const ProfileScreen: React.FC = () => {
   const { user, logout } = useAuth();
@@ -39,103 +40,112 @@ export const ProfileScreen: React.FC = () => {
     fetchProfile();
   }, []);
 
+  const [showModal, setShowModal] = React.useState(false);
+
   const handleLogout = () => {
-    if (Platform.OS === 'web') {
-      if (window.confirm('Are you sure you want to sign out?')) {
-        logout();
-      }
-    } else {
-      Alert.alert(
-        'Logout',
-        'Are you sure you want to sign out?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Logout', style: 'destructive', onPress: logout }
-        ]
-      );
-    }
+    setShowModal(true);
+  };
+
+  const confirmLogout = () => {
+    setShowModal(false);
+    logout();
   };
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: themeColors.background }]} contentContainerStyle={styles.content}>
-      <View style={styles.header}>
-        <NeumorphicCard style={styles.avatarContainer}>
-          <Image 
-            source={{ uri: `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}` }} 
-            style={styles.avatar} 
-          />
-        </NeumorphicCard>
-        <Text style={[styles.userName, { color: themeColors.text }]}>{user?.name || 'Student Name'}</Text>
-        <Text style={[styles.userEmail, { color: themeColors.textSecondary }]}>{user?.email}</Text>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Settings</Text>
-        
-        <TouchableOpacity onPress={toggleTheme}>
-          <NeumorphicCard style={styles.menuItem}>
-            <View style={styles.menuItemLeft}>
-              <View style={[styles.iconBox, { backgroundColor: theme === 'light' ? '#718096' : '#FFD700' }]}>
-                <MaterialCommunityIcons 
-                  name={theme === 'light' ? "moon-waning-crescent" : "white-balance-sunny"} 
-                  size={20} 
-                  color="#FFF" 
-                />
-              </View>
-              <Text style={[styles.menuItemText, { color: themeColors.text }]}>Dark Mode</Text>
-            </View>
-            <MaterialCommunityIcons 
-              name={theme === 'dark' ? "toggle-switch" : "toggle-switch-off"} 
-              size={40} 
-              color={theme === 'dark' ? colors.light.success : themeColors.outline} 
+    <View style={{ flex: 1 }}>
+      <ScrollView
+        style={[styles.container, { backgroundColor: themeColors.background }]}
+        contentContainerStyle={styles.content}
+      >
+        <View style={styles.header}>
+          <NeumorphicCard style={styles.avatarContainer}>
+            <Image
+              source={{ uri: `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}` }}
+              style={styles.avatar}
             />
           </NeumorphicCard>
-        </TouchableOpacity>
-      </View>
+          <Text style={[styles.userName, { color: themeColors.text }]}>{user?.name || 'Student Name'}</Text>
+          <Text style={[styles.userEmail, { color: themeColors.textSecondary }]}>{user?.email}</Text>
+        </View>
 
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Account Info</Text>
-        <NeumorphicCard style={styles.infoCard}>
-          <View style={styles.infoRow}>
-            <Text style={[styles.infoLabel, { color: themeColors.textSecondary }]}>Student Code</Text>
-            <Text style={[styles.infoValue, { color: themeColors.text }]}>{profile?.studentCode || '--'}</Text>
-          </View>
-          <View style={[styles.infoDivider, { backgroundColor: themeColors.outline + '40' }]} />
-          <View style={styles.infoRow}>
-            <Text style={[styles.infoLabel, { color: themeColors.textSecondary }]}>Status</Text>
-            <Text style={[styles.infoValue, { color: themeColors.text }]}>{profile?.status || '--'}</Text>
-          </View>
-          <View style={[styles.infoDivider, { backgroundColor: themeColors.outline + '40' }]} />
-          <View style={styles.infoRow}>
-            <Text style={[styles.infoLabel, { color: themeColors.textSecondary }]}>Joined</Text>
-            <Text style={[styles.infoValue, { color: themeColors.text }]}>
-              {profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString() : '--'}
-            </Text>
-          </View>
-        </NeumorphicCard>
-      </View>
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Settings</Text>
 
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Support</Text>
-        <NeumorphicCard style={styles.menuItem}>
-          <View style={styles.menuItemLeft}>
-            <View style={[styles.iconBox, { backgroundColor: '#A0AEC0' }]}>
-              <MaterialCommunityIcons name="help-circle-outline" size={20} color="#FFF" />
+          <TouchableOpacity onPress={toggleTheme}>
+            <NeumorphicCard style={styles.menuItem}>
+              <View style={styles.menuItemLeft}>
+                <View style={[styles.iconBox, { backgroundColor: theme === 'light' ? '#718096' : '#FFD700' }]}>
+                  <MaterialCommunityIcons
+                    name={theme === 'light' ? "moon-waning-crescent" : "white-balance-sunny"}
+                    size={20}
+                    color="#FFF"
+                  />
+                </View>
+                <Text style={[styles.menuItemText, { color: themeColors.text }]}>Dark Mode</Text>
+              </View>
+              <MaterialCommunityIcons
+                name={theme === 'dark' ? "toggle-switch" : "toggle-switch-off"}
+                size={40}
+                color={theme === 'dark' ? colors.light.success : themeColors.outline}
+              />
+            </NeumorphicCard>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Account Info</Text>
+          <NeumorphicCard style={styles.infoCard}>
+            <View style={styles.infoRow}>
+              <Text style={[styles.infoLabel, { color: themeColors.textSecondary }]}>Student Code</Text>
+              <Text style={[styles.infoValue, { color: themeColors.text }]}>{profile?.studentCode || '--'}</Text>
             </View>
-            <Text style={[styles.menuItemText, { color: themeColors.text }]}>Help Center</Text>
-          </View>
-        </NeumorphicCard>
-      </View>
+            <View style={[styles.infoDivider, { backgroundColor: themeColors.outline + '40' }]} />
+            <View style={styles.infoRow}>
+              <Text style={[styles.infoLabel, { color: themeColors.textSecondary }]}>Status</Text>
+              <Text style={[styles.infoValue, { color: themeColors.text }]}>{profile?.status || '--'}</Text>
+            </View>
+            <View style={[styles.infoDivider, { backgroundColor: themeColors.outline + '40' }]} />
+            <View style={styles.infoRow}>
+              <Text style={[styles.infoLabel, { color: themeColors.textSecondary }]}>Joined</Text>
+              <Text style={[styles.infoValue, { color: themeColors.text }]}>
+                {profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString() : '--'}
+              </Text>
+            </View>
+          </NeumorphicCard>
+        </View>
 
-      <View style={styles.logoutWrapper}>
-        <NeumorphicButton onPress={handleLogout} style={styles.logoutButton}>
-          <MaterialCommunityIcons name="logout" size={20} color={colors.light.error} />
-          <Text style={[styles.logoutText, { color: colors.light.error }]}>Sign Out</Text>
-        </NeumorphicButton>
-      </View>
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Support</Text>
+          <NeumorphicCard style={styles.menuItem}>
+            <View style={styles.menuItemLeft}>
+              <View style={[styles.iconBox, { backgroundColor: '#A0AEC0' }]}>
+                <MaterialCommunityIcons name="help-circle-outline" size={20} color="#FFF" />
+              </View>
+              <Text style={[styles.menuItemText, { color: themeColors.text }]}>Help Center</Text>
+            </View>
+          </NeumorphicCard>
+        </View>
 
-      <Text style={[styles.version, { color: themeColors.textSecondary }]}>InDaZone Premium v1.0.4</Text>
-    </ScrollView>
+        <View style={styles.logoutWrapper}>
+          <NeumorphicButton onPress={handleLogout} style={styles.logoutButton}>
+            <MaterialCommunityIcons name="logout" size={20} color={colors.light.error} />
+            <Text style={[styles.logoutText, { color: colors.light.error }]}>Sign Out</Text>
+          </NeumorphicButton>
+        </View>
+
+        <Text style={[styles.version, { color: themeColors.textSecondary }]}>
+          InDaZone Premium v1.0.4
+        </Text>
+      </ScrollView>
+
+      {/* ✅ FIXED POSITION (inside root View) */}
+      <ConfirmModal
+        visible={showModal}
+        message="Are you sure you want to sign out?"
+        onCancel={() => setShowModal(false)}
+        onConfirm={confirmLogout}
+      />
+    </View>
   );
 };
 

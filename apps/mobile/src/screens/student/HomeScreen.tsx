@@ -1,3 +1,4 @@
+//File Name: HomeScreen.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -18,6 +19,7 @@ import { CheckInButton } from '../../components/CheckInButton';
 import { StatusBadge } from '../../components/StatusBadge';
 import { shadow } from '../../utils/styles';
 import { api } from '../../services/api';
+import { AppHeader } from '@/src/components/AppHeader';
 
 // ─── Types matching your API exactly ────────────────────────────────────────
 
@@ -92,15 +94,15 @@ const formatRemainingTime = (checkInTime: string, minDurationHours: number = 6):
   const checkInDate = new Date(checkInTime).getTime();
   const expectedCheckOut = checkInDate + minDurationHours * 3600000;
   let remaining = expectedCheckOut - Date.now();
-  
+
   if (remaining < 0) remaining = 0;
-  
+
   const h = Math.floor(remaining / 3600000);
   const m = Math.floor((remaining % 3600000) / 60000);
   const s = Math.floor((remaining % 60000) / 1000);
-  
+
   const pad = (num: number) => num.toString().padStart(2, '0');
-  
+
   return `${pad(h)}:${pad(m)}:${pad(s)}`;
 };
 
@@ -294,23 +296,23 @@ export const HomeScreen: React.FC = () => {
       const messageStr = err.response?.data?.message;
 
       if (code === 403) {
-         Alert.alert('Access Denied', 'You do not have permission to perform this action.');
+        Alert.alert('Access Denied', 'You do not have permission to perform this action.');
       } else if (code === 400 && errorStr === 'OUTSIDE_GEOFENCE') {
-         Alert.alert('Outside Geofence', `You are ${distanceM ? distanceM.toFixed(0) : '?'}m away from the zone.`);
+        Alert.alert('Outside Geofence', `You are ${distanceM ? distanceM.toFixed(0) : '?'}m away from the zone.`);
       } else if (code === 400 && errorStr === 'STALE_TIMESTAMP') {
-         if (retryCount < 2) {
-            handleAction(retryCount + 1);
-            return;
-         }
-         Alert.alert('Error', 'Timestamp stale after retries.');
+        if (retryCount < 2) {
+          handleAction(retryCount + 1);
+          return;
+        }
+        Alert.alert('Error', 'Timestamp stale after retries.');
       } else if (code === 400 && errorStr === 'LOW_GPS_ACCURACY') {
-         Alert.alert('Low GPS Accuracy', 'Please move to an open area and try again.');
+        Alert.alert('Low GPS Accuracy', 'Please move to an open area and try again.');
       } else if (code === 409 && errorStr === 'ALREADY_CHECKED_IN') {
-         fetchToday();
-         Alert.alert('Already Checked In', 'You are already checked in. Refreshing state...');
+        fetchToday();
+        Alert.alert('Already Checked In', 'You are already checked in. Refreshing state...');
       } else {
-         const msg = messageStr || errorStr || 'Something went wrong';
-         Alert.alert('Error', msg);
+        const msg = messageStr || errorStr || 'Something went wrong';
+        Alert.alert('Error', msg);
       }
     } finally {
       setIsProcessing(false);
@@ -345,56 +347,58 @@ export const HomeScreen: React.FC = () => {
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
+      <AppHeader />
       {/* ── Map Section ───────────────────────────────────────────────────── */}
-      <View
-        style={[
-          styles.mapContainer,
-          { backgroundColor: themeColors.surface },
-          shadow('#000', { x: 0, y: 4 }, 0.1, 10, 5),
-        ]}
-      >
-        {isLoading ? (
-          <View style={styles.mapPlaceholder}>
-            <ActivityIndicator color={themeColors.primary} size="large" />
-            <Text style={[styles.loadingText, { color: themeColors.textSecondary }]}>
-              Acquiring location...
-            </Text>
-          </View>
-        ) : (
-          <GeofenceMap 
-            userLocation={userLocation}
-            geofenceLocation={geofenceLocation}
-            isWithinGeofence={isWithinGeofence}
-          />
-        )}
-
-        {/* Distance tag */}
-        {!isLoading && (
-          <View style={[styles.locationTag, { backgroundColor: themeColors.background + 'EE' }]}>
-            <MaterialCommunityIcons
-              name="map-marker-radius"
-              size={16}
-              color={isWithinGeofence ? '#48BB78' : '#ECC94B'}
+      <View style={styles.mapWrapper}>
+        <View
+          style={[
+            styles.mapContainer,
+            { backgroundColor: themeColors.surface },
+          ]}
+        >
+          {isLoading ? (
+            <View style={styles.mapPlaceholder}>
+              <ActivityIndicator color={themeColors.primary} size="large" />
+              <Text style={[styles.loadingText, { color: themeColors.textSecondary }]}>
+                Acquiring location...
+              </Text>
+            </View>
+          ) : (
+            <GeofenceMap
+              userLocation={userLocation}
+              geofenceLocation={geofenceLocation}
+              isWithinGeofence={isWithinGeofence}
             />
-            <Text
-              style={[
-                styles.locationTagText,
-                { color: isWithinGeofence ? '#48BB78' : '#D69E2E' },
-              ]}
-            >
-              {distanceM != null
-                ? `${distanceM.toFixed(0)}m from zone`
-                : geofenceLocation?.name ?? 'Locating...'}
-            </Text>
-          </View>
-        )}
+          )}
 
-        {locationError && (
-          <View style={styles.errorBanner}>
-            <MaterialCommunityIcons name="alert-circle" size={14} color="#C53030" />
-            <Text style={styles.errorText}>{locationError}</Text>
-          </View>
-        )}
+          {/* Distance tag */}
+          {!isLoading && (
+            <View style={[styles.locationTag, { backgroundColor: themeColors.background + 'EE' }]}>
+              <MaterialCommunityIcons
+                name="map-marker-radius"
+                size={16}
+                color={isWithinGeofence ? '#48BB78' : '#ECC94B'}
+              />
+              <Text
+                style={[
+                  styles.locationTagText,
+                  { color: isWithinGeofence ? '#48BB78' : '#D69E2E' },
+                ]}
+              >
+                {distanceM != null
+                  ? `${distanceM.toFixed(0)}m from zone`
+                  : geofenceLocation?.name ?? 'Locating...'}
+              </Text>
+            </View>
+          )}
+
+          {locationError && (
+            <View style={styles.errorBanner}>
+              <MaterialCommunityIcons name="alert-circle" size={14} color="#C53030" />
+              <Text style={styles.errorText}>{locationError}</Text>
+            </View>
+          )}
+        </View>
       </View>
 
       {/* ── Check-in Button ───────────────────────────────────────────────── */}
@@ -451,11 +455,23 @@ export const HomeScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 24, gap: 24 },
+  mapWrapper: {
+    alignItems: 'center',
+  },
+
   mapContainer: {
-    height: 360,
-    borderRadius: 32,
+    width: '90%',            // ✅ smaller width
+    height: 320,            // slightly reduced height
+    borderRadius: 28,
     padding: 8,
     overflow: 'hidden',
+
+    // neumorphic shadow (matches cards)
+    shadowColor: '#000',
+    shadowOffset: { width: 6, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 8,
   },
   map: { flex: 1, borderRadius: 24 },
   mapPlaceholder: {

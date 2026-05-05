@@ -4,11 +4,11 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
   ActivityIndicator,
   TouchableOpacity
 } from 'react-native';
@@ -33,16 +33,30 @@ export const NotificationsScreen: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     fetchNotifications();
+
+    // ✅ FIX: auto refresh every 5 seconds
+    const interval = setInterval(fetchNotifications, 5000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const fetchNotifications = async () => {
     try {
       setError(null);
       const response = await api.get('/notifications');
-      setNotifications(response.data.data || []);
+
+      const data = response.data.data || [];
+
+      setNotifications(data);
+
+      // ✅ FIX: update unread count
+      const unread = data.filter((n: Notification) => !n.read).length;
+      setUnreadCount(unread);
+
     } catch (e) {
       console.error('Failed to fetch notifications', e);
       setError('Failed to load notifications. Please try again.');
@@ -54,7 +68,13 @@ export const NotificationsScreen: React.FC = () => {
   const markAsRead = async (id: string) => {
     try {
       await api.patch(`/notifications/${id}/read`);
-      setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+
+      setNotifications(prev =>
+        prev.map(n => n.id === id ? { ...n, read: true } : n)
+      );
+
+      setUnreadCount(prev => Math.max(prev - 1, 0));
+
     } catch (e) {
       console.error('Failed to mark read', e);
     }
@@ -66,8 +86,10 @@ export const NotificationsScreen: React.FC = () => {
       if (unreadIds.length === 0) return;
 
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      setUnreadCount(0);
 
       await Promise.all(unreadIds.map(id => api.patch(`/notifications/${id}/read`)));
+
     } catch (e) {
       console.error('Failed to mark all as read', e);
     }
@@ -95,11 +117,24 @@ export const NotificationsScreen: React.FC = () => {
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: themeColors.background }]} contentContainerStyle={styles.content}>
+
       <View style={styles.header}>
         <Text style={[styles.title, { color: themeColors.text }]}>Notifications</Text>
-        <TouchableOpacity onPress={markAllRead}>
-          <Text style={[styles.actionText, { color: colors.light.success }]}>Mark all read</Text>
-        </TouchableOpacity>
+
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          {/* ✅ UNREAD COUNT DISPLAY */}
+          {unreadCount > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{unreadCount}</Text>
+            </View>
+          )}
+
+          <TouchableOpacity onPress={markAllRead}>
+            <Text style={[styles.actionText, { color: colors.light.success }]}>
+              Mark all read
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {notifications.length > 0 ? (
@@ -109,11 +144,21 @@ export const NotificationsScreen: React.FC = () => {
               <View style={[styles.iconBox, { backgroundColor: getIconBg(item.type) }]}>
                 <MaterialCommunityIcons name={getIconName(item.type)} size={20} color="#FFF" />
               </View>
+
               <View style={styles.cardContent}>
-                <Text style={[styles.notifTitle, { color: themeColors.text }]}>{item.title}</Text>
-                <Text style={[styles.notifMessage, { color: themeColors.textSecondary }]}>{item.body}</Text>
-                <Text style={[styles.notifTime, { color: themeColors.textSecondary }]}>{new Date(item.createdAt).toLocaleString()}</Text>
+                <Text style={[styles.notifTitle, { color: themeColors.text }]}>
+                  {item.title}
+                </Text>
+
+                <Text style={[styles.notifMessage, { color: themeColors.textSecondary }]}>
+                  {parseNotificationBody(item.body, item.title)}
+                </Text>
+
+                <Text style={[styles.notifTime, { color: themeColors.textSecondary }]}>
+                  {new Date(item.createdAt).toLocaleString()}
+                </Text>
               </View>
+
               {!item.read && <View style={styles.unreadDot} />}
             </NeumorphicCard>
           </TouchableOpacity>
@@ -121,13 +166,17 @@ export const NotificationsScreen: React.FC = () => {
       ) : (
         <View style={styles.emptyContainer}>
           <MaterialCommunityIcons name="bell-off-outline" size={64} color={themeColors.outline + '30'} />
-          <Text style={[styles.emptyText, { color: themeColors.textSecondary }]}>No notifications yet</Text>
+          <Text style={[styles.emptyText, { color: themeColors.textSecondary }]}>
+            No notifications yet
+          </Text>
         </View>
       )}
 
       {notifications.length === 50 && (
         <NeumorphicButton style={styles.loadMoreButton}>
-          <Text style={[styles.loadMoreText, { color: themeColors.text }]}>Load Previous</Text>
+          <Text style={[styles.loadMoreText, { color: themeColors.text }]}>
+            Load Previous
+          </Text>
         </NeumorphicButton>
       )}
     </ScrollView>
@@ -150,6 +199,24 @@ const getIconBg = (type: string) => {
     case 'warning': return '#ECC94B';
     default: return '#A0AEC0';
   }
+};
+
+const parseNotificationBody = (body: string, title: string): string => {
+  const isoMatch = body.match(/(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[^Z\s]*Z)/);
+
+  if (isoMatch && isoMatch[1]) {
+    const timestamp = new Date(isoMatch[1]);
+    const formattedTime = timestamp.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    });
+
+    return body.replace(isoMatch[1], `${formattedTime}`);
+  }
+
+  return body;
 };
 
 const styles = StyleSheet.create({
@@ -177,6 +244,17 @@ const styles = StyleSheet.create({
   actionText: {
     fontSize: 14,
     fontWeight: '700',
+  },
+  badge: {
+    backgroundColor: '#FF3B30',
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  badgeText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: '800',
   },
   notifCard: {
     flexDirection: 'row',

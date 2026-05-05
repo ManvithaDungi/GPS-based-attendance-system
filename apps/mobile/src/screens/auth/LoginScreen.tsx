@@ -3,7 +3,7 @@ import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   KeyboardAvoidingView,
   ScrollView,
@@ -118,11 +118,11 @@ export const LoginScreen: React.FC = () => {
               <Text style={[styles.label, { color: themeColors.textSecondary }]}>
                 PASSWORD
               </Text>
-              <TouchableOpacity>
+              <Pressable>
                 <Text style={[styles.forgotText, { color: colors.light.success }]}>
                   Forgot?
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
 
             <View style={[styles.inputWrapper, { backgroundColor: themeColors.surface }]}>
@@ -140,18 +140,18 @@ export const LoginScreen: React.FC = () => {
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
               />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+              <Pressable onPress={() => setShowPassword(!showPassword)}>
                 <MaterialCommunityIcons
                   name={showPassword ? "eye-off-outline" : "eye-outline"}
                   size={20}
                   color={themeColors.outline}
                 />
-              </TouchableOpacity>
+              </Pressable>
             </View>
           </View>
 
           {/* LOGIN BUTTON */}
-          <TouchableOpacity
+          <Pressable
             onPress={handleLogin}
             disabled={isLoading}
             style={[
@@ -167,7 +167,7 @@ export const LoginScreen: React.FC = () => {
                 <MaterialCommunityIcons name="arrow-right" size={20} color="#FFF" />
               </>
             )}
-          </TouchableOpacity>
+          </Pressable>
 
         </View>
 

@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { View, TouchableOpacity, StyleSheet, ViewStyle, StyleProp } from 'react-native';
+import { View, Pressable, StyleSheet, ViewStyle, StyleProp } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { colors } from '../theme/colors';
 import { shadow } from '../utils/styles';
@@ -59,8 +59,7 @@ export const NeumorphicButton: React.FC<NeumorphicButtonProps> = ({
   const themeColors = colors[theme];
 
   return (
-    <TouchableOpacity
-      activeOpacity={0.8}
+    <Pressable
       onPress={onPress}
       disabled={disabled}
       style={[
@@ -74,7 +73,7 @@ export const NeumorphicButton: React.FC<NeumorphicButtonProps> = ({
       ]}
     >
       {children}
-    </TouchableOpacity>
+    </Pressable>
   );
 };
 
