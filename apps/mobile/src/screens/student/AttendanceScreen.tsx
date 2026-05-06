@@ -41,11 +41,28 @@ export const AttendanceScreen: React.FC = () => {
         api.get('/attendance/history?page=1&limit=30'),
         api.get('/attendance/summary')
       ]);
-      const data = historyRes.data.data || [];
+
+      // Normalize history data
+      const data = historyRes.data.data || historyRes.data || [];
       setHistory(data);
-      setStats(statsRes.data);
-    } catch (e) {
-      console.error('Failed to fetch attendance data', e);
+
+      // 🔧 Normalize stats — handle different backend field names
+      const raw = statsRes.data?.data || statsRes.data || {};
+      const normalizedStats = {
+        presentDays: raw.presentDays ?? raw.present_days ?? raw.totalPresent ?? 0,
+        absentDays: raw.absentDays ?? raw.absent_days ?? raw.totalAbsent ?? 0,
+        lateDays: raw.lateDays ?? raw.late_days ?? raw.totalLate ?? 0,
+        attendancePercentage: raw.attendancePercentage ?? raw.attendance_percentage ?? 0,
+        totalDays: raw.totalDays ?? raw.total_days ?? 0,
+      };
+      setStats(normalizedStats);
+
+    } catch (e: any) {
+      console.error('❌ Failed to fetch attendance data:', {
+        message: e.message,
+        status: e.response?.status,
+        data: e.response?.data,
+      });
     } finally {
       setIsLoading(false);
     }

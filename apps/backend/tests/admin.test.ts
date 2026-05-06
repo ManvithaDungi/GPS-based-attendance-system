@@ -1,6 +1,7 @@
 import request from 'supertest';
 import app from '../src/app';
 import { prisma } from '../src/utils/prisma';
+import { closeRedis } from '../src/utils/redis';
 import bcrypt from 'bcrypt';
 import { cleanDatabase } from './helpers/database';
 
@@ -52,6 +53,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await closeRedis();
   await prisma.$disconnect();
 });
 
@@ -187,6 +189,122 @@ describe('Admin APIs', () => {
 
       expect(res.status).toBe(404);
       expect(res.body.error).toBe('NOT_FOUND');
+    });
+  });
+
+  describe('Admin location-management routes', () => {
+    let createdLocationId: string;
+
+    it('should create a location with default working hours', async () => {
+      const res = await request(app)
+        .post('/api/v1/admin/locations')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          name: 'Campus A',
+          latitude: 17.7324,
+          longitude: 83.3213,
+          radiusMeters: 100,
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.message).toBe('Location created successfully');
+      expect(res.body.location).toMatchObject({
+        name: 'Campus A',
+        latitude: 17.7324,
+        longitude: 83.3213,
+        radiusMeters: 100,
+      });
+      expect(res.body.location.id).toBeDefined();
+      expect(res.body.location.createdAt).toBeDefined();
+
+      createdLocationId = res.body.location.id;
+
+      const workingHours = await prisma.workingHours.findUnique({
+        where: { locationId: createdLocationId },
+      });
+
+      expect(workingHours).toMatchObject({
+        startTime: '09:00',
+        endTime: '17:00',
+        lateThresholdMins: 15,
+        minDurationHours: 6,
+      });
+    });
+
+    it('should reject invalid location creation input', async () => {
+      const res = await request(app)
+        .post('/api/v1/admin/locations')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          name: '',
+          latitude: 91,
+          longitude: 83.3213,
+          radiusMeters: 5,
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('Validation error');
+      expect(res.body.details).toBeDefined();
+    });
+
+    it('should update an active location', async () => {
+      const res = await request(app)
+        .patch(`/api/v1/admin/locations/${createdLocationId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          name: 'Campus A Updated',
+          radiusMeters: 150,
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.message).toBe('Location updated successfully');
+      expect(res.body.location).toMatchObject({
+        id: createdLocationId,
+        name: 'Campus A Updated',
+        latitude: 17.7324,
+        longitude: 83.3213,
+        radiusMeters: 150,
+      });
+      expect(res.body.location.updatedAt).toBeDefined();
+    });
+
+    it('should reject location updates with no updatable fields', async () => {
+      const res = await request(app)
+        .patch(`/api/v1/admin/locations/${createdLocationId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({});
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('VALIDATION_ERROR');
+    });
+
+    it('should soft-delete a location', async () => {
+      const res = await request(app)
+        .delete(`/api/v1/admin/locations/${createdLocationId}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.message).toBe('Location deleted successfully');
+
+      const location = await prisma.location.findUnique({ where: { id: createdLocationId } });
+      expect(location?.deletedAt).not.toBeNull();
+    });
+
+    it('should return LOCATION_NOT_FOUND for soft-deleted locations', async () => {
+      const updateRes = await request(app)
+        .patch(`/api/v1/admin/locations/${createdLocationId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ radiusMeters: 200 });
+
+      expect(updateRes.status).toBe(404);
+      expect(updateRes.body.error).toBe('LOCATION_NOT_FOUND');
+
+      const deleteRes = await request(app)
+        .delete(`/api/v1/admin/locations/${createdLocationId}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(deleteRes.status).toBe(404);
+      expect(deleteRes.body.error).toBe('LOCATION_NOT_FOUND');
     });
   });
 });

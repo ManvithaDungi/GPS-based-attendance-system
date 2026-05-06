@@ -473,7 +473,10 @@ Get the current user's attendance record for today.
 }
 ```
 
-**Response `404`:** No attendance record found for today.
+**Response `200` with no attendance record for today:**
+```json
+null
+```
 
 ---
 

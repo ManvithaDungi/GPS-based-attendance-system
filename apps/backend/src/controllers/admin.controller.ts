@@ -2,6 +2,11 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import { prisma } from '../utils/prisma';
+import { getRedisClient } from '../utils/redis';
+import {
+  createAdminLocationSchema,
+  updateAdminLocationSchema,
+} from '../schemas/admin-location.schemas';
 
 const createStudentSchema = z.object({
   name: z.string().min(1),
@@ -13,6 +18,17 @@ const createStudentSchema = z.object({
 const updateStudentStatusSchema = z.object({
   status: z.enum(['ACTIVE', 'SUSPENDED']),
 });
+
+const invalidateGeofenceCache = async (locationId?: string): Promise<void> => {
+  try {
+    const redis = getRedisClient();
+    const keys = ['geofence:locations'];
+    if (locationId) keys.push(`geofence:location:${locationId}`);
+    await redis.del(...keys);
+  } catch {
+    // Cache invalidation is best-effort; database write already succeeded.
+  }
+};
 
 export const createStudent = async (req: Request, res: Response): Promise<Response> => {
   try {
@@ -209,6 +225,120 @@ export const getConfig = async (req: Request, res: Response): Promise<Response> 
     });
     return res.status(200).json({ data: locations });
   } catch (error) {
+    return res.status(500).json({ error: 'INTERNAL_ERROR' });
+  }
+};
+
+export const createLocation = async (req: Request, res: Response): Promise<Response> => {
+  try {
+    const data = createAdminLocationSchema.parse(req.body);
+
+    const location = await prisma.location.create({
+      data: {
+        name: data.name,
+        latitude: data.latitude,
+        longitude: data.longitude,
+        radiusMeters: data.radiusMeters,
+        workingHours: {
+          create: {
+            startTime: '09:00',
+            endTime: '17:00',
+            lateThresholdMins: 15,
+            minDurationHours: 6,
+          },
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        latitude: true,
+        longitude: true,
+        radiusMeters: true,
+        createdAt: true,
+      },
+    });
+
+    await invalidateGeofenceCache();
+
+    return res.status(201).json({ message: 'Location created successfully', location });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Validation error', details: error.errors });
+    }
+    return res.status(500).json({ error: 'INTERNAL_ERROR' });
+  }
+};
+
+export const updateLocation = async (req: Request, res: Response): Promise<Response> => {
+  try {
+    const locationId = z.string().min(1).parse(req.params.locationId);
+    const data = updateAdminLocationSchema.parse(req.body);
+
+    if (Object.keys(data).length === 0) {
+      return res.status(400).json({
+        error: 'VALIDATION_ERROR',
+        message: 'At least one location field must be provided',
+      });
+    }
+
+    const existing = await prisma.location.findFirst({
+      where: { id: locationId, deletedAt: null },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      return res.status(404).json({ error: 'LOCATION_NOT_FOUND' });
+    }
+
+    const location = await prisma.location.update({
+      where: { id: locationId },
+      data,
+      select: {
+        id: true,
+        name: true,
+        latitude: true,
+        longitude: true,
+        radiusMeters: true,
+        updatedAt: true,
+      },
+    });
+
+    await invalidateGeofenceCache(locationId);
+
+    return res.status(200).json({ message: 'Location updated successfully', location });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Validation error', details: error.errors });
+    }
+    return res.status(500).json({ error: 'INTERNAL_ERROR' });
+  }
+};
+
+export const deleteLocation = async (req: Request, res: Response): Promise<Response> => {
+  try {
+    const locationId = z.string().min(1).parse(req.params.locationId);
+
+    const existing = await prisma.location.findFirst({
+      where: { id: locationId, deletedAt: null },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      return res.status(404).json({ error: 'LOCATION_NOT_FOUND' });
+    }
+
+    await prisma.location.update({
+      where: { id: locationId },
+      data: { deletedAt: new Date() },
+    });
+
+    await invalidateGeofenceCache(locationId);
+
+    return res.status(200).json({ message: 'Location deleted successfully' });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Validation error', details: error.errors });
+    }
     return res.status(500).json({ error: 'INTERNAL_ERROR' });
   }
 };

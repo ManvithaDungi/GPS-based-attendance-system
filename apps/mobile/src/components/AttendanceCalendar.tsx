@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { NeumorphicCard } from './NeumorphicCard';
 
@@ -19,6 +19,20 @@ export const AttendanceCalendar: React.FC<Props> = ({
    onSelectDate,
 }) => {
 
+   const now = new Date();
+   const [month, setMonth] = useState(now.getMonth());
+   const [year, setYear] = useState(now.getFullYear());
+
+   const goToPrev = () => {
+      if (month === 0) { setMonth(11); setYear(y => y - 1); }
+      else setMonth(m => m - 1);
+   };
+
+   const goToNext = () => {
+      if (month === 11) { setMonth(0); setYear(y => y + 1); }
+      else setMonth(m => m + 1);
+   };
+
    const getStatusColor = (status: string) => {
       if (status === 'PRESENT') return '#22C55E';
       if (status === 'ABSENT') return '#EF4444';
@@ -26,22 +40,33 @@ export const AttendanceCalendar: React.FC<Props> = ({
       return '#A0AEC0';
    };
 
-   const now = new Date();
-   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
    const getDayData = (day: number) => {
       return history.find(item => {
          const d = new Date(item.date);
          return (
             d.getDate() === day &&
-            d.getMonth() === now.getMonth() &&
-            d.getFullYear() === now.getFullYear()
+            d.getMonth() === month &&
+            d.getFullYear() === year
          );
       });
    };
 
+   const monthLabel = new Date(year, month).toLocaleString('default', { month: 'long', year: 'numeric' });
+
    return (
       <NeumorphicCard style={styles.calendar}>
+         <View style={styles.header}>
+            <TouchableOpacity onPress={goToPrev}>
+               <Text style={[styles.arrow, { color: themeColors.text }]}>{'‹'}</Text>
+            </TouchableOpacity>
+            <Text style={[styles.monthLabel, { color: themeColors.text }]}>{monthLabel}</Text>
+            <TouchableOpacity onPress={goToNext}>
+               <Text style={[styles.arrow, { color: themeColors.text }]}>{'›'}</Text>
+            </TouchableOpacity>
+         </View>
+
          <View style={styles.grid}>
             {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(day => {
                const data = getDayData(day);
@@ -73,6 +98,20 @@ export const AttendanceCalendar: React.FC<Props> = ({
 const styles = StyleSheet.create({
    calendar: {
       padding: 16,
+   },
+   header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 12,
+   },
+   monthLabel: {
+      fontSize: 16,
+      fontWeight: '600',
+   },
+   arrow: {
+      fontSize: 24,
+      paddingHorizontal: 8,
    },
    grid: {
       flexDirection: 'row',

@@ -161,13 +161,10 @@ export const HomeScreen: React.FC = () => {
   // ── Fetch today's attendance ──────────────────────────────────────────────
   const fetchToday = async () => {
     try {
-      const res = await api.get<TodayAttendance>('/attendance/today');
+      const res = await api.get<TodayAttendance | null>('/attendance/today');
       setTodayAttendance(res.data);
     } catch (err: any) {
-      // 404 = no attendance today, that's fine
-      if (err.response?.status !== 404) {
-        console.error('Failed to fetch today attendance', err);
-      }
+      console.error('Failed to fetch today attendance', err);
       setTodayAttendance(null);
     }
   };

@@ -287,7 +287,7 @@ export const getToday = async (req: Request, res: Response): Promise<Response> =
   try {
     const log = await attendanceService.getTodayAttendance(req.user!.id);
     if (!log) {
-      return res.status(404).json({ error: 'NOT_FOUND' });
+      return res.status(200).json(null);
     }
     return res.status(200).json(formatTodayAttendance(log));
   } catch (error) {

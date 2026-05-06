@@ -23,12 +23,30 @@ export const useAttendance = () => {
     setIsLoading(true);
     try {
       const response = await api.get('/attendance/today');
-      setTodayAttendance(response.data);
+      if (!response.data) {
+        setTodayAttendance(null);
+        return;
+      }
+
+      const normalizedData = {
+        status: response.data?.status ?? 'NONE',
+        checkInTime: response.data?.checkInTime ?? null,
+        checkOutTime: response.data?.checkOutTime ?? null,
+        duration: response.data?.durationHours ? `${Math.floor(response.data.durationHours)}h ${Math.round((response.data.durationHours % 1) * 60)}m` : '0h 0m',
+        isInside: response.data?.isInside ?? false,
+      };
+      setTodayAttendance(normalizedData);
+      console.log('✅ Today Attendance:', JSON.stringify(normalizedData, null, 2));
     } catch (e: any) {
-      if (e.response && e.response.status === 404) {
+      if (e.response?.status === 404) {
+        console.log('ℹ️ No attendance found for today');
         setTodayAttendance(null);
       } else {
-        console.error('Failed to fetch today attendance', e);
+        console.error('❌ Failed to fetch today attendance:', {
+          message: e.message,
+          status: e.response?.status,
+          data: e.response?.data,
+        });
       }
     } finally {
       setIsLoading(false);
