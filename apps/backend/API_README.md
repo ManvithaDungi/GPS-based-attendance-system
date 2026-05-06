@@ -112,6 +112,8 @@ Login and receive access + refresh tokens.
 
 **Access:** Public
 
+**Rate Limit:** 10 requests per 15 minutes per IP (Redis-backed)
+
 **Request Body:**
 ```json
 {
@@ -151,6 +153,15 @@ Login and receive access + refresh tokens.
 {
   "error": "ACCOUNT_SUSPENDED",
   "message": "Your account has been suspended. Contact admin for details."
+}
+```
+
+**Response `429` (too many attempts):**
+```json
+{
+  "error": "TOO_MANY_REQUESTS",
+  "message": "Too many login attempts. Please try again later.",
+  "retryAfterMs": 12345
 }
 ```
 
@@ -462,7 +473,10 @@ Get the current user's attendance record for today.
 }
 ```
 
-**Response `404`:** No attendance record found for today.
+**Response `200` with no attendance record for today:**
+```json
+null
+```
 
 ---
 
@@ -711,11 +725,12 @@ Applied to admin routes (`requireRole("ADMIN")`).
 Applied to `POST /attendance/checkin` and `POST /attendance/checkout`.
 
 - Only active when the `Idempotency-Key` request header is present.
-- Stores a hash of the request body keyed by `(key, userId)`.
-- Replays the stored successful response for a duplicate identical request.
-- Returns `400` if the same key is reused with a different request payload.
-- Returns `409` if a request with the same key is still in-flight.
-- Deletes failed idempotency records so failed requests can be retried cleanly.
+- Uses atomic Redis lock semantics to prevent race-condition duplicate writes.
+- Stores a request fingerprint over method + route + query + stable body.
+- Replays the exact stored response (`statusCode` + body) for identical retries.
+- Returns `400` (`IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_REQUEST`) if the same key is reused with a different request fingerprint or endpoint.
+- Returns `409` (`REQUEST_IN_PROGRESS`) if a request with the same key is still in-flight.
+- Uses Redis TTL (24h) for cleanup.
 
 ```http
 Idempotency-Key: <unique-request-id>
@@ -725,7 +740,15 @@ Idempotency-Key: <unique-request-id>
 
 ## 9. Error Responses
 
-Error response shapes are not yet fully standardised across all controllers. The following shapes currently exist in the codebase:
+The app now has a centralized global error middleware for uncaught route/middleware errors.
+
+Standard uncaught-error format:
+
+```json
+{ "error": "INTERNAL_ERROR", "message": "An unexpected error occurred", "statusCode": 500 }
+```
+
+Controller-level responses are still route-specific in several handlers. The following shapes currently exist in the codebase:
 
 ```json
 { "error": "UNAUTHORIZED", "message": "No token provided" }

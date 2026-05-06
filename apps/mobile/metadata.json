@@ -1,0 +1,6 @@
+{
+  "name": "InDaZone",
+  "description": "GPS-based attendance system with geofencing. Not in Zone, No Attendance.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": []
+}

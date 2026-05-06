@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-headline: "DM Sans", sans-serif;
+
+  /* Colors */
+  --color-primary: #4F8EF7;
+  --color-success: #34C759;
+  --color-warning: #FF9F0A;
+  --color-danger: #FF3B30;
+
+  /* Light Mode */
+  --color-bg-light: #E8EDF2;
+  --color-surface-light: #EDF1F7;
+  
+  /* Dark Mode */
+  --color-bg-dark: #1E2329;
+  --color-surface-dark: #252B34;
+
+  /* Neumorphic Shadows - Light */
+  --shadow-neu-raised-light: 8px 8px 16px #c8d0d8, -8px -8px 16px #ffffff;
+  --shadow-neu-inset-light: inset 4px 4px 8px #b8bec5, inset -4px -4px 8px #ffffff;
+  
+  /* Neumorphic Shadows - Dark */
+  --shadow-neu-raised-dark: 8px 8px 16px #12161c, -8px -8px 16px #2a3140;
+  --shadow-neu-inset-dark: inset 4px 4px 8px #12161c, inset -4px -4px 8px #2a3140;
+}
+
+@layer base {
+  body {
+    @apply transition-colors duration-300;
+  }
+}
+
+@layer utilities {
+  .neumorphic-raised {
+    @apply shadow-[var(--shadow-neu-raised-light)] dark:shadow-[var(--shadow-neu-raised-dark)];
+  }
+  .neumorphic-inset {
+    @apply shadow-[var(--shadow-neu-inset-light)] dark:shadow-[var(--shadow-neu-inset-dark)];
+  }
+}
+
+/* Leaflet map styles */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}

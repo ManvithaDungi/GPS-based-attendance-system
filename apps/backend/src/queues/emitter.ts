@@ -1,3 +1,4 @@
+//apps/backend/src/queues/emitter.ts
 import { getAttendanceEventsQueue, getNotificationsQueue } from './index';
 import { logger } from '../utils/logger';
 

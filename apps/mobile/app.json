@@ -3,32 +3,48 @@
     "name": "InDaZone",
     "slug": "indazone",
     "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#E8EDF2"
+    },
     "assetBundlePatterns": [
       "**/*"
     ],
-    "platforms": [
-      "ios",
-      "android",
-      "web"
-    ],
     "ios": {
-      "supportsTabletMode": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "This app uses your location for GPS-based attendance tracking.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app uses your location for GPS-based attendance tracking."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#E8EDF2"
       },
-      "package": "com.indazone.app"
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "apiUrl": "http://localhost:3000/api/v1",
+      "eas": {
+        "projectId": "your-project-id"
+      }
     },
     "plugins": [
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Allow InDaZone to use your location"
+          "locationAlwaysAndWhenInUsePermission": "Allow InDaZone to access your location."
         }
       ]
     ]

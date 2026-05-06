@@ -1,33 +1,86 @@
-import axios, { AxiosInstance } from 'axios';
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
-// TODO: Load from env config in production
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
+import axios from 'axios';
+import { StorageService } from '../utils/storage';
+import Constants from 'expo-constants';
 
-// Create axios instance with base config
-const apiClient: AxiosInstance = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+import { Platform, DeviceEventEmitter } from 'react-native';
+
+const getBaseURL = () => {
+  if (Platform.OS === 'web') {
+    return 'http://localhost:3000/api/v1';
+  }
+
+  const extraConfig = Constants.expoConfig?.extra;
+  if (extraConfig?.apiUrl && extraConfig.apiUrl !== 'http://localhost:3000/api/v1') {
+    return extraConfig.apiUrl;
+  }
+  
+  // Fallback for development
+  if (Platform.OS === 'android') {
+    return 'http://10.0.2.2:3000/api/v1';
+  }
+  return 'http://localhost:3000/api/v1';
+};
+
+const BASE_URL = getBaseURL();
+
+export const api = axios.create({
+  baseURL: BASE_URL,
   timeout: 10000,
 });
 
-// TODO: Add JWT token interceptor
-// apiClient.interceptors.request.use((config) => {
-//   const token = await getAuthToken();
-//   if (token) {
-//     config.headers.Authorization = `Bearer ${token}`;
-//   }
-//   return config;
-// });
+export const setAuthToken = (token: string | null) => {
+  if (token) {
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+  } else {
+    delete api.defaults.headers.common['Authorization'];
+  }
+};
 
-// TODO: Add response error handling interceptor
-// apiClient.interceptors.response.use(
-//   (response) => response,
-//   (error) => {
-//     // Handle 401, refresh token, retry
-//     // Handle other errors
-//   }
-// );
+api.interceptors.request.use(async (config) => {
+  const token = await StorageService.getItem('accessToken');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
-export default apiClient;
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    
+    // On 401, try to refresh token
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      
+      try {
+        const refreshToken = await StorageService.getItem('refreshToken');
+        if (!refreshToken) throw new Error('No refresh token');
+        
+        const response = await axios.post(`${BASE_URL}/auth/refresh`, { refreshToken });
+        const { accessToken } = response.data;
+        
+        await StorageService.setItem('accessToken', accessToken);
+        setAuthToken(accessToken);
+        
+        originalRequest.headers['Authorization'] = `Bearer ${accessToken}`;
+        return api(originalRequest);
+      } catch (refreshError) {
+        // Handle failed refresh (log out)
+        await StorageService.removeItem('accessToken');
+        await StorageService.removeItem('refreshToken');
+        await StorageService.removeItem('user');
+        setAuthToken(null);
+        DeviceEventEmitter.emit('auth:logout');
+        return Promise.reject(refreshError);
+      }
+    }
+    
+    return Promise.reject(error);
+  }
+);

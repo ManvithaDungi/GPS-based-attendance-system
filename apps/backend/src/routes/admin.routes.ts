@@ -47,6 +47,21 @@ router.get('/reports', authMiddleware, requireRole('ADMIN'), adminController.get
 router.get('/config', authMiddleware, requireRole('ADMIN'), adminController.getConfig);
 
 /**
+ * POST /api/v1/admin/locations
+ */
+router.post('/locations', authMiddleware, requireRole('ADMIN'), adminController.createLocation);
+
+/**
+ * PATCH /api/v1/admin/locations/:locationId
+ */
+router.patch('/locations/:locationId', authMiddleware, requireRole('ADMIN'), adminController.updateLocation);
+
+/**
+ * DELETE /api/v1/admin/locations/:locationId
+ */
+router.delete('/locations/:locationId', authMiddleware, requireRole('ADMIN'), adminController.deleteLocation);
+
+/**
  * PATCH /api/v1/admin/config/working-hours/:locationId
  */
 router.patch('/config/working-hours/:locationId', authMiddleware, requireRole('ADMIN'), adminController.updateWorkingHours);

@@ -134,6 +134,19 @@ afterAll(async () => {
 });
 
 describe('Attendance APIs', () => {
+  describe('GET /api/v1/attendance/today', () => {
+    it('should return null when the student has no attendance today', async () => {
+      const { token } = await createStudentAndLogin();
+
+      const res = await request(app)
+        .get('/api/v1/attendance/today')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body).toBeNull();
+    });
+  });
+
   describe('POST /api/v1/attendance/checkin', () => {
     it('should reject checkin outside geofence', async () => {
       const res = await request(app)
@@ -169,6 +182,16 @@ describe('Attendance APIs', () => {
       expect(res.body.message).toBe('Check-in successful');
       expect(res.body.attendance.status).toBe('PENDING');
       expect(res.body.attendance.checkInDistanceM).toBeDefined();
+    });
+
+    it('should return today attendance after checkin', async () => {
+      const res = await request(app)
+        .get('/api/v1/attendance/today')
+        .set('Authorization', `Bearer ${studentToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('PENDING');
+      expect(res.body.checkInTime).toBeDefined();
     });
 
     it('should reject duplicate checkin on same day', async () => {

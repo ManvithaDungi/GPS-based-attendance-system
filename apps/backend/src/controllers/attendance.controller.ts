@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 import * as attendanceService from '../services/attendance.service';
 import { AttendanceStatus, PunctualityStatus } from '@prisma/client';
-import { emitCheckIn, emitCheckOut } from '../queues/emitter';
+import { emitCheckIn, emitCheckOut, emitNotification } from '../queues/emitter';
 
 const checkInSchema = z.object({
   lat: z.number(),
@@ -175,6 +175,13 @@ export const checkIn = async (req: Request, res: Response): Promise<Response> =>
       timestamp: data.timestamp,
     });
 
+    emitNotification({
+      userId: req.user!.id,
+      type: 'success',
+      title: 'Check-in Successful',
+      body: `Your attendance has been recorded successfully at ${log.checkInTime!.toISOString()}`,
+    });
+
     return res.status(200).json({
       message: 'Check-in successful',
       attendance: formatCheckInAttendance(log),
@@ -244,6 +251,13 @@ export const checkOut = async (req: Request, res: Response): Promise<Response> =
       timestamp: data.timestamp,
     });
 
+    emitNotification({
+      userId: req.user!.id,
+      type: 'success',
+      title: 'Check-out Successful',
+      body: `You successfully checked out at ${log.checkOutTime!.toISOString()}`,
+    });
+
     return res.status(200).json({
       message: 'Check-out successful',
       attendance: formatCheckOutAttendance(log),
@@ -273,7 +287,7 @@ export const getToday = async (req: Request, res: Response): Promise<Response> =
   try {
     const log = await attendanceService.getTodayAttendance(req.user!.id);
     if (!log) {
-      return res.status(404).json({ error: 'NOT_FOUND' });
+      return res.status(200).json(null);
     }
     return res.status(200).json(formatTodayAttendance(log));
   } catch (error) {

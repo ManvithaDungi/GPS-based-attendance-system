@@ -1,0 +1,82 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React from 'react';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { HomeScreen } from '../screens/student/HomeScreen';
+import { AttendanceScreen } from '../screens/student/AttendanceScreen';
+import { NotificationsScreen } from '../screens/student/NotificationsScreen';
+import { ProfileScreen } from '../screens/student/ProfileScreen';
+import { useTheme } from '../context/ThemeContext';
+import { colors } from '../theme/colors';
+
+const Tab = createBottomTabNavigator();
+
+export const MainLayout: React.FC = () => {
+  const { theme } = useTheme();
+  const themeColors = colors[theme];
+
+  return (
+    <Tab.Navigator
+      id="tabs"
+      screenOptions={({ route }) => ({
+
+        // ❌ REMOVE default header (this was causing double layout)
+        headerShown: false,
+
+        // ✅ FIX: floating tab bar
+        tabBarStyle: {
+          position: 'absolute',
+          left: 20,
+          right: 20,
+          bottom: 20,
+          height: 65,
+          borderRadius: 20,
+          backgroundColor: themeColors.surface,
+          borderTopWidth: 0,
+          paddingBottom: 8,
+          paddingTop: 8,
+
+          shadowColor: '#000',
+          shadowOffset: { width: 6, height: 6 },
+          shadowOpacity: 0.15,
+          shadowRadius: 10,
+          elevation: 10,
+        },
+
+        tabBarActiveTintColor: colors.light.success,
+        tabBarInactiveTintColor: themeColors.textSecondary,
+
+        // ✅ icon logic
+        tabBarIcon: ({ color }) => {
+          let iconName: keyof typeof MaterialCommunityIcons.glyphMap = 'home';
+
+          if (route.name === 'Home') iconName = 'home';
+          else if (route.name === 'Attendance') iconName = 'calendar-check';
+          else if (route.name === 'Notifications') iconName = 'bell';
+          else if (route.name === 'Profile') iconName = 'account-circle';
+
+          return <MaterialCommunityIcons name={iconName} size={22} color={color} />;
+        },
+
+        // ✅ FIX label clipping
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '600',
+        },
+
+        tabBarItemStyle: {
+          paddingVertical: 4,
+        },
+      })}
+    >
+      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Attendance" component={AttendanceScreen} />
+      <Tab.Screen name="Notifications" component={NotificationsScreen} />
+      <Tab.Screen name="Profile" component={ProfileScreen} />
+    </Tab.Navigator>
+  );
+};

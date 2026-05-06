@@ -35,23 +35,25 @@ async function main() {
       passwordHash: hashedPassword,
       role: 'ADMIN',
     },
-  });
+  }); await prisma.location.deleteMany(); // optional reset
 
-  // ─── LOCATIONS ───
+  const BASE_LAT = 17.732326;
+  const BASE_LNG = 83.321304;
+
   const locations = await Promise.all([
     prisma.location.create({
       data: {
         name: 'Campus A',
-        latitude: 17.385,
-        longitude: 78.4867,
+        latitude: BASE_LAT,
+        longitude: BASE_LNG,
         radiusMeters: 120,
       },
     }),
     prisma.location.create({
       data: {
         name: 'Campus B',
-        latitude: 17.39,
-        longitude: 78.48,
+        latitude: BASE_LAT + 0.0045, // ~500m north
+        longitude: BASE_LNG,
         radiusMeters: 150,
       },
     }),

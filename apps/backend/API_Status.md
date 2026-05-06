@@ -231,7 +231,7 @@ No APIs marked "not yet implemented" were implemented.
 | PATCH | `/api/v1/auth/me/password` | Protected password change | Implemented in `auth.controller.ts` | Strict success and wrong-current-password tests | Implemented and tested |
 | POST | `/api/v1/attendance/checkin` | Protected check-in with geofence, timestamp, accuracy, idempotency | Implemented in `attendance.controller.ts` and `attendance.service.ts` | Strict success, geofence, duplicate, stale timestamp, low accuracy, missing location, unauthenticated, and idempotency tests | Implemented and tested |
 | POST | `/api/v1/attendance/checkout` | Protected checkout with status/duration calculation | Implemented in `attendance.controller.ts` and `attendance.service.ts` | Strict success, duplicate, no-checkin, outside-geofence, low accuracy, and working-hours tests | Implemented and tested |
-| GET | `/api/v1/attendance/today` | Protected today's record | Implemented in `attendance.controller.ts` | Strict success test | Implemented and tested |
+| GET | `/api/v1/attendance/today` | Protected today's record, returns `null` when no record exists today | Implemented in `attendance.controller.ts` | Strict success and empty-state tests | Implemented and tested |
 | GET | `/api/v1/attendance/history` | Protected paginated history | Implemented in `attendance.controller.ts` | Strict response-shape and invalid-query tests | Implemented and tested |
 | GET | `/api/v1/attendance/summary` | Protected aggregate summary | Implemented in `attendance.controller.ts` | Strict response test | Implemented and tested |
 | GET | `/api/v1/geofence/validate` | Protected coordinate validation | Implemented in `geofence.controller.ts` | Strict success and error tests | Implemented and tested |
