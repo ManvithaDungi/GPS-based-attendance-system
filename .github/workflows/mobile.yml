@@ -37,7 +37,7 @@ jobs:
           cache-dependency-path: ${{ env.WORKING_DIR }}/package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       - name: TypeScript type check
         run: npm run lint
@@ -74,14 +74,8 @@ jobs:
       - name: Install Vercel CLI
         run: npm install -g vercel
 
-      - name: Pull Vercel environment
-        run: vercel pull --yes --environment=production --token=$VERCEL_TOKEN
-
       - name: Build web export
         run: npx expo export -p web
-
-      - name: Add Vercel static config
-        run: cp vercel.json "${{ github.workspace }}/apps/mobile/dist/vercel.json"
 
       - name: Deploy Preview (Pull Request)
         if: github.event_name == 'pull_request'
@@ -90,7 +84,6 @@ jobs:
           url=$(vercel deploy "${{ github.workspace }}/apps/mobile/dist" \
             --token=$VERCEL_TOKEN \
             --yes \
-            --build-env EXPO_PUBLIC_API_URL=$EXPO_PUBLIC_API_URL \
             2>&1 | grep -o 'https://[^ ]*' | tail -1)
           echo "preview_url=$url" >> $GITHUB_OUTPUT
 
