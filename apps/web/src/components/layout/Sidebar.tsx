@@ -7,15 +7,17 @@ import {
   History, 
   LogOut, 
   ShieldCheck,
-  HelpCircle
+  HelpCircle,
+  Users,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 const menuItems = [
-  { icon: LayoutDashboard, label: 'Overview', path: '/' },
-  { icon: UserCheck, label: 'Attendance', path: '/attendance' },
-  { icon: MapPin, label: 'Premises', path: '/premises' },
-  { icon: History, label: 'Logs', path: '/logs' },
+  { icon: LayoutDashboard, label: 'Overview',   path: '/' },
+  { icon: UserCheck,       label: 'Attendance', path: '/attendance' },
+  { icon: Users,           label: 'Students',   path: '/students' },
+  { icon: MapPin,          label: 'Premises',   path: '/premises' },
+  { icon: History,         label: 'Logs',       path: '/logs' },
 ];
 
 export const Sidebar = () => {
@@ -43,6 +45,7 @@ export const Sidebar = () => {
           <NavLink
             key={item.path}
             to={item.path}
+            end={item.path === '/'}
             className={({ isActive }) => cn(
               "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300",
               isActive 

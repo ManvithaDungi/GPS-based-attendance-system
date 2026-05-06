@@ -12,6 +12,7 @@ import { Overview } from './pages/Overview';
 import { Attendance } from './pages/Attendance';
 import { Premises } from './pages/Premises';
 import { Logs } from './pages/Logs';
+import { Students } from './pages/Students';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const token = localStorage.getItem('accessToken');
@@ -36,7 +37,6 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 export default function App() {
-  // Set initial theme
   useEffect(() => {
     const theme = localStorage.getItem('theme') || 'light';
     document.documentElement.classList.toggle('dark', theme === 'dark');
@@ -48,27 +48,23 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         
         <Route path="/" element={
-          <ProtectedRoute>
-            <Overview />
-          </ProtectedRoute>
+          <ProtectedRoute><Overview /></ProtectedRoute>
         } />
         
         <Route path="/attendance" element={
-          <ProtectedRoute>
-            <Attendance />
-          </ProtectedRoute>
+          <ProtectedRoute><Attendance /></ProtectedRoute>
+        } />
+
+        <Route path="/students" element={
+          <ProtectedRoute><Students /></ProtectedRoute>
         } />
         
         <Route path="/premises" element={
-          <ProtectedRoute>
-            <Premises />
-          </ProtectedRoute>
+          <ProtectedRoute><Premises /></ProtectedRoute>
         } />
         
         <Route path="/logs" element={
-          <ProtectedRoute>
-            <Logs />
-          </ProtectedRoute>
+          <ProtectedRoute><Logs /></ProtectedRoute>
         } />
 
         <Route path="*" element={<Navigate to="/" replace />} />

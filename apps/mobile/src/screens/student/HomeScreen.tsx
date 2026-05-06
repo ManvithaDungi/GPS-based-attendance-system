@@ -143,13 +143,48 @@ export const HomeScreen: React.FC = () => {
     };
   }, [todayAttendance?.checkInTime, todayAttendance?.checkOutTime, geofenceLocation]);
 
-  // ── Fetch geofence location (first active location) ───────────────────────
+  // ── Fetch geofence locations and pick the nearest one ────────────────────
   useEffect(() => {
     const fetchLocation = async () => {
       try {
         const res = await api.get<{ data: GeofenceLocation[] }>('/geofence/locations');
-        if (res.data.data.length > 0) {
-          setGeofenceLocation(res.data.data[0]);
+        const locations = res.data.data;
+        if (locations.length === 0) return;
+
+        if (locations.length === 1) {
+          setGeofenceLocation(locations[0]);
+          return;
+        }
+
+        // Wait until we have the user's GPS position, then pick the nearest location.
+        // getCurrentPosition is called here independently so the pick happens even
+        // if the main GPS useEffect hasn't resolved yet.
+        const pickNearest = (lat: number, lng: number) => {
+          let nearest = locations[0];
+          let minDist = haversineDistance(lat, lng, locations[0].latitude, locations[0].longitude);
+          for (let i = 1; i < locations.length; i++) {
+            const d = haversineDistance(lat, lng, locations[i].latitude, locations[i].longitude);
+            if (d < minDist) { minDist = d; nearest = locations[i]; }
+          }
+          setGeofenceLocation(nearest);
+        };
+
+        if (Platform.OS === 'web') {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => pickNearest(pos.coords.latitude, pos.coords.longitude),
+            () => setGeofenceLocation(locations[0]), // fallback to first if GPS denied
+            { enableHighAccuracy: true, timeout: 10000 }
+          );
+        } else {
+          try {
+            const ExpoLocation = await import('expo-location');
+            const pos = await ExpoLocation.getCurrentPositionAsync({
+              accuracy: ExpoLocation.Accuracy.High,
+            });
+            pickNearest(pos.coords.latitude, pos.coords.longitude);
+          } catch {
+            setGeofenceLocation(locations[0]); // fallback to first if GPS fails
+          }
         }
       } catch (err) {
         console.error('Failed to fetch geofence locations', err);
