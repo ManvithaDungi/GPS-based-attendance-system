@@ -173,12 +173,12 @@ jobs:
     steps:
       - name: Trigger Render deploy
         run: |
-          echo "🚀 Triggering deploy to Render..."
+          echo " Triggering deploy to Render..."
           curl -sf "${{ secrets.RENDER_DEPLOY_HOOK }}" || echo "⚠️ Deploy hook not configured yet — set RENDER_DEPLOY_HOOK secret"
 
       - name: Deploy summary
         run: |
-          echo "✅ CI passed — deploy triggered"
+          echo " CI passed — deploy triggered"
           echo "   Platform: Render (Node runtime)"
           echo "   Database: Neon (PostgreSQL)"
           echo "   Render will run: npm ci → prisma generate → tsc → prisma migrate deploy → node dist/server.js"
