@@ -1,7 +1,9 @@
 {
   "expo": {
     "name": "InDaZone",
-    "slug": "indazone",
+    "slug": "gpsattendancesystem",
+    "appId": "550e8400-e29b-41d4-a716-446655440001",
+    "platforms": ["web"],
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -37,7 +39,7 @@
     "extra": {
       "apiUrl": "http://localhost:3000/api/v1",
       "eas": {
-        "projectId": "your-project-id"
+        "projectId": "71704aac-4935-4da2-a8e9-33a5c17c4c46"
       }
     },
     "plugins": [
