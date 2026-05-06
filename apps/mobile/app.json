@@ -37,7 +37,7 @@
       "favicon": "./assets/favicon.png"
     },
     "extra": {
-      "apiUrl": "http://localhost:3000/api/v1",
+      "apiUrl": "https://gps-attendance-api.onrender.com/api/v1",
       "eas": {
         "projectId": "71704aac-4935-4da2-a8e9-33a5c17c4c46"
       }

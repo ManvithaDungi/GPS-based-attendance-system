@@ -9,21 +9,34 @@ import Constants from 'expo-constants';
 
 import { Platform, DeviceEventEmitter } from 'react-native';
 
+const LOCAL_DEV_API_URL = 'http://localhost:3000/api/v1';
+const ANDROID_DEV_API_URL = 'http://10.0.2.2:3000/api/v1';
+const PRODUCTION_API_URL = 'https://gps-attendance-api.onrender.com/api/v1';
+
+const isLocalApiUrl = (url: string) =>
+  /^https?:\/\/(localhost|127\.0\.0\.1|10\.0\.2\.2)(:\d+)?\/api\/v1\/?$/i.test(url);
+
 const getBaseURL = () => {
-  if (Platform.OS === 'web') {
-    return 'http://localhost:3000/api/v1';
+  const extraConfig = Constants.expoConfig?.extra as { apiUrl?: string } | undefined;
+  const configuredApiUrl = extraConfig?.apiUrl;
+
+  if (configuredApiUrl && (!isLocalApiUrl(configuredApiUrl) || __DEV__)) {
+    return configuredApiUrl;
   }
 
-  const extraConfig = Constants.expoConfig?.extra;
-  if (extraConfig?.apiUrl && extraConfig.apiUrl !== 'http://localhost:3000/api/v1') {
-    return extraConfig.apiUrl;
+  if (__DEV__) {
+    if (Platform.OS === 'android') {
+      return ANDROID_DEV_API_URL;
+    }
+
+    return LOCAL_DEV_API_URL;
   }
-  
-  // Fallback for development
-  if (Platform.OS === 'android') {
-    return 'http://10.0.2.2:3000/api/v1';
+
+  if (configuredApiUrl && !isLocalApiUrl(configuredApiUrl)) {
+    return configuredApiUrl;
   }
-  return 'http://localhost:3000/api/v1';
+
+  return PRODUCTION_API_URL;
 };
 
 const BASE_URL = getBaseURL();
@@ -53,21 +66,21 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    
+
     // On 401, try to refresh token
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
-      
+
       try {
         const refreshToken = await StorageService.getItem('refreshToken');
         if (!refreshToken) throw new Error('No refresh token');
-        
+
         const response = await axios.post(`${BASE_URL}/auth/refresh`, { refreshToken });
         const { accessToken } = response.data;
-        
+
         await StorageService.setItem('accessToken', accessToken);
         setAuthToken(accessToken);
-        
+
         originalRequest.headers['Authorization'] = `Bearer ${accessToken}`;
         return api(originalRequest);
       } catch (refreshError) {
@@ -80,7 +93,7 @@ api.interceptors.response.use(
         return Promise.reject(refreshError);
       }
     }
-    
+
     return Promise.reject(error);
   }
 );
