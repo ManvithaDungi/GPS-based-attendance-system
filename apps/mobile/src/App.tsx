@@ -4,6 +4,8 @@
  */
 
 import React from 'react';
+import { useFonts } from 'expo-font';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
@@ -45,6 +47,12 @@ const Navigation = () => {
 };
 
 const App = () => {
+  const [fontsLoaded, fontError] = useFonts({
+    ...MaterialCommunityIcons.font,
+  });
+
+  // Prevent render loop when fonts fail to load on web — proceed if there's an error
+  if (!fontsLoaded && !fontError) return null;
   return (
     <SafeAreaProvider>
       <AuthProvider>
