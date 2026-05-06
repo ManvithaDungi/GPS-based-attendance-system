@@ -74,6 +74,9 @@ jobs:
       - name: Install Vercel CLI
         run: npm install -g vercel
 
+      - name: Pull Vercel environment
+        run: vercel pull --yes --environment=production --token=$VERCEL_TOKEN
+
       - name: Build web export
         run: npx expo export -p web
 
@@ -81,7 +84,7 @@ jobs:
         if: github.event_name == 'pull_request'
         id: preview
         run: |
-          url=$(vercel deploy "${{ github.workspace }}/apps/mobile/dist" --token=$VERCEL_TOKEN --yes 2>&1 | tail -1)
+          url=$(vercel deploy --prebuilt "${{ github.workspace }}/apps/mobile/dist" --token=$VERCEL_TOKEN --yes 2>&1 | tail -1)
           echo "preview_url=$url" >> $GITHUB_OUTPUT
 
       - name: Comment Preview URL on PR
@@ -98,4 +101,4 @@ jobs:
 
       - name: Deploy Production (main branch)
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: vercel deploy "${{ github.workspace }}/apps/mobile/dist" --token=$VERCEL_TOKEN --prod --yes
+        run: vercel deploy --prebuilt "${{ github.workspace }}/apps/mobile/dist" --token=$VERCEL_TOKEN --prod --yes
