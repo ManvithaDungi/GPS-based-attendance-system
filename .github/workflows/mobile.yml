@@ -80,11 +80,18 @@ jobs:
       - name: Build web export
         run: npx expo export -p web
 
+      - name: Add Vercel static config
+        run: cp apps/mobile/vercel.json "${{ github.workspace }}/apps/mobile/dist/vercel.json"
+
       - name: Deploy Preview (Pull Request)
         if: github.event_name == 'pull_request'
         id: preview
         run: |
-          url=$(vercel deploy --prebuilt "${{ github.workspace }}/apps/mobile/dist" --token=$VERCEL_TOKEN --yes 2>&1 | tail -1)
+          url=$(vercel deploy "${{ github.workspace }}/apps/mobile/dist" \
+            --token=$VERCEL_TOKEN \
+            --yes \
+            --build-env EXPO_PUBLIC_API_URL=$EXPO_PUBLIC_API_URL \
+            2>&1 | grep -o 'https://[^ ]*' | tail -1)
           echo "preview_url=$url" >> $GITHUB_OUTPUT
 
       - name: Comment Preview URL on PR
@@ -101,4 +108,8 @@ jobs:
 
       - name: Deploy Production (main branch)
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: vercel deploy --prebuilt "${{ github.workspace }}/apps/mobile/dist" --token=$VERCEL_TOKEN --prod --yes
+        run: |
+          vercel deploy "${{ github.workspace }}/apps/mobile/dist" \
+            --token=$VERCEL_TOKEN \
+            --prod \
+            --yes
