@@ -59,6 +59,8 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     env:
       EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL }}
+      EXPO_PUBLIC_GOOGLE_MAPS_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_KEY }}
+      EXPO_PUBLIC_GOOGLE_MAPS_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_ID }}
     defaults:
       run:
         working-directory: ${{ env.WORKING_DIR }}
@@ -94,6 +96,8 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     env:
       EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL }}
+      EXPO_PUBLIC_GOOGLE_MAPS_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_KEY }}
+      EXPO_PUBLIC_GOOGLE_MAPS_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_ID }}
     defaults:
       run:
         working-directory: ${{ env.WORKING_DIR }}
