@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { GeofenceMap } from '../../components/GeofenceMap';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import Icon from '../../components/Icon';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { colors } from '../../theme/colors';
@@ -408,11 +408,7 @@ export const HomeScreen: React.FC = () => {
           {/* Distance tag */}
           {!isLoading && (
             <View style={[styles.locationTag, { backgroundColor: themeColors.background + 'EE' }]}>
-              <MaterialCommunityIcons
-                name="map-marker-radius"
-                size={16}
-                color={isWithinGeofence ? '#48BB78' : '#ECC94B'}
-              />
+              <Icon name="map-marker-radius" size={16} color={isWithinGeofence ? '#48BB78' : '#ECC94B'} />
               <Text
                 style={[
                   styles.locationTagText,
@@ -432,7 +428,7 @@ export const HomeScreen: React.FC = () => {
               style={styles.mapHint}
               onPress={() => setMapInteractive(true)}
             >
-              <MaterialCommunityIcons name="gesture-tap" size={14} color="#fff" />
+              <Icon name="gesture-tap" size={14} color="#fff" />
               <Text style={styles.mapHintText}>Interact</Text>
             </TouchableOpacity>
           )}
@@ -442,14 +438,14 @@ export const HomeScreen: React.FC = () => {
               style={styles.mapDismiss}
               onPress={() => setMapInteractive(false)}
             >
-              <MaterialCommunityIcons name="close-circle" size={18} color="#fff" />
+              <Icon name="close-circle" size={18} color="#fff" />
               <Text style={styles.mapDismissText}>Done</Text>
             </TouchableOpacity>
           )}
 
           {locationError && (
             <View style={styles.errorBanner}>
-              <MaterialCommunityIcons name="alert-circle" size={14} color="#C53030" />
+              <Icon name="alert-circle" size={14} color="#C53030" />
               <Text style={styles.errorText}>{locationError}</Text>
             </View>
           )}
@@ -493,11 +489,7 @@ export const HomeScreen: React.FC = () => {
       {/* ── Punctuality badge (shows after check-in) ──────────────────────── */}
       {todayAttendance?.punctuality && (
         <NeumorphicCard style={styles.punctualityCard}>
-          <MaterialCommunityIcons
-            name={todayAttendance.punctuality === 'ON_TIME' ? 'check-circle' : 'clock-alert'}
-            size={20}
-            color={todayAttendance.punctuality === 'ON_TIME' ? '#48BB78' : '#ECC94B'}
-          />
+          <Icon name={todayAttendance.punctuality === 'ON_TIME' ? 'check-circle' : 'clock-alert'} size={20} color={todayAttendance.punctuality === 'ON_TIME' ? '#48BB78' : '#ECC94B'} />
           <Text style={[styles.punctualityText, { color: themeColors.text }]}>
             {todayAttendance.punctuality === 'ON_TIME' ? 'On Time' : 'Marked Late'}
           </Text>

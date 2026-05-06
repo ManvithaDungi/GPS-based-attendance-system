@@ -13,7 +13,7 @@ import {
   TouchableOpacity 
 } from 'react-native';
 import { Calendar } from 'react-native-calendars';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import Icon from '../../components/Icon';
 import { useTheme } from '../../context/ThemeContext';
 import { colors } from '../../theme/colors';
 import { NeumorphicCard } from '../../components/NeumorphicCard';
@@ -93,7 +93,7 @@ export const HistoryScreen: React.FC = () => {
           <NeumorphicCard style={styles.detailCard}>
             <View style={styles.detailRow}>
               <View style={styles.detailLabelGroup}>
-                <MaterialCommunityIcons name="calendar-check" size={20} color={themeColors.primary} />
+                <Icon name="calendar-check" size={20} color={themeColors.primary} />
                 <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>STATUS</Text>
               </View>
               <StatusBadge status={selectedRecord.status} />
@@ -122,7 +122,7 @@ export const HistoryScreen: React.FC = () => {
           </NeumorphicCard>
         ) : (
           <NeumorphicCard style={styles.emptyCard}>
-            <MaterialCommunityIcons name="calendar-blank" size={48} color={themeColors.outline + '40'} />
+            <Icon name="calendar-blank" size={48} color={themeColors.outline + '40'} />
             <Text style={[styles.emptyText, { color: themeColors.textSecondary }]}>
               No attendance record for this date
             </Text>

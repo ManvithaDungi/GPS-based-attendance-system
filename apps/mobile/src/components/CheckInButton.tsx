@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import Icon from './Icon';
 import { useTheme } from '../context/ThemeContext';
 import { colors } from '../theme/colors';
 import { shadow } from '../utils/styles';
@@ -74,7 +74,7 @@ export const CheckInButton: React.FC<CheckInButtonProps> = ({ status, onPress, i
         ) : (
           <View style={styles.content}>
             <View style={[styles.iconContainer, { backgroundColor: config.color + '15' }]}>
-              <MaterialCommunityIcons name={config.icon as any} size={32} color={config.color} />
+              <Icon name={config.icon as any} size={32} color={config.color} />
             </View>
             <Text style={[styles.buttonText, { color: config.color }]}> 
               {config.text}

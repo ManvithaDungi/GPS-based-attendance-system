@@ -14,7 +14,7 @@ import {
   Alert,
   Platform
 } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import Icon from '../../components/Icon';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { colors } from '../../theme/colors';
@@ -75,19 +75,11 @@ export const ProfileScreen: React.FC = () => {
             <NeumorphicCard style={styles.menuItem}>
               <View style={styles.menuItemLeft}>
                 <View style={[styles.iconBox, { backgroundColor: theme === 'light' ? '#718096' : '#FFD700' }]}>
-                  <MaterialCommunityIcons
-                    name={theme === 'light' ? "moon-waning-crescent" : "white-balance-sunny"}
-                    size={20}
-                    color="#FFF"
-                  />
+                  <Icon name={theme === 'light' ? 'moon-waning-crescent' : 'white-balance-sunny'} size={20} color="#FFF" />
                 </View>
                 <Text style={[styles.menuItemText, { color: themeColors.text }]}>Dark Mode</Text>
               </View>
-              <MaterialCommunityIcons
-                name={theme === 'dark' ? "toggle-switch" : "toggle-switch-off"}
-                size={40}
-                color={theme === 'dark' ? colors.light.success : themeColors.outline}
-              />
+              <Icon name={theme === 'dark' ? 'toggle-switch' : 'toggle-switch-off'} size={40} color={theme === 'dark' ? colors.light.success : themeColors.outline} />
             </NeumorphicCard>
           </TouchableOpacity>
         </View>
@@ -119,16 +111,16 @@ export const ProfileScreen: React.FC = () => {
           <NeumorphicCard style={styles.menuItem}>
             <View style={styles.menuItemLeft}>
               <View style={[styles.iconBox, { backgroundColor: '#A0AEC0' }]}>
-                <MaterialCommunityIcons name="help-circle-outline" size={20} color="#FFF" />
-              </View>
+                  <Icon name="help-circle-outline" size={20} color="#FFF" />
+                </View>
               <Text style={[styles.menuItemText, { color: themeColors.text }]}>Help Center</Text>
             </View>
           </NeumorphicCard>
         </View>
 
         <View style={styles.logoutWrapper}>
-          <NeumorphicButton onPress={handleLogout} style={styles.logoutButton}>
-            <MaterialCommunityIcons name="logout" size={20} color={colors.light.error} />
+            <NeumorphicButton onPress={handleLogout} style={styles.logoutButton}>
+            <Icon name="logout" size={20} color={colors.light.error} />
             <Text style={[styles.logoutText, { color: colors.light.error }]}>Sign Out</Text>
           </NeumorphicButton>
         </View>

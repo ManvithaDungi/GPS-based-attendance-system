@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import Icon from './Icon';
 import { HomeScreen } from '../screens/student/HomeScreen';
 import { AttendanceScreen } from '../screens/student/AttendanceScreen';
 import { NotificationsScreen } from '../screens/student/NotificationsScreen';
@@ -52,14 +52,14 @@ export const MainLayout: React.FC = () => {
 
         // ✅ icon logic
         tabBarIcon: ({ color }) => {
-          let iconName: keyof typeof MaterialCommunityIcons.glyphMap = 'home';
+          let iconName = 'home';
 
           if (route.name === 'Home') iconName = 'home';
           else if (route.name === 'Attendance') iconName = 'calendar-check';
           else if (route.name === 'Notifications') iconName = 'bell';
           else if (route.name === 'Profile') iconName = 'account-circle';
 
-          return <MaterialCommunityIcons name={iconName} size={22} color={color} />;
+          return <Icon name={iconName} size={22} color={color} />;
         },
 
         // ✅ FIX label clipping

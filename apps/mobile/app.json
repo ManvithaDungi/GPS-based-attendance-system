@@ -2,8 +2,7 @@
   "expo": {
     "name": "InDaZone",
     "slug": "gpsattendancesystem",
-    "appId": "550e8400-e29b-41d4-a716-446655440001",
-    "platforms": ["web"],
+    "platforms": ["ios", "android", "web"],
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -18,6 +17,7 @@
     ],
     "ios": {
       "supportsTablet": true,
+      "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "This app uses your location for GPS-based attendance tracking.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "This app uses your location for GPS-based attendance tracking."
       }
@@ -33,10 +33,10 @@
       ]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
     },
     "extra": {
-      "apiUrl": "https://gps-attendance-api.onrender.com/api/v1",
       "eas": {
         "projectId": "71704aac-4935-4da2-a8e9-33a5c17c4c46"
       }
@@ -47,7 +47,18 @@
         {
           "locationAlwaysAndWhenInUsePermission": "Allow InDaZone to access your location."
         }
+      ],
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "./node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/MaterialCommunityIcons.ttf",
+            "./node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/MaterialIcons.ttf",
+            "./node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf",
+            "./node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/FontAwesome.ttf"
+          ]
+        }
       ]
-      
     ]
   }
+}

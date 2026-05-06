@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import Icon from './Icon';
 import { useTheme } from '../context/ThemeContext';
 import { NeumorphicButton } from './NeumorphicCard';
 
@@ -17,11 +17,7 @@ export const ThemeToggle: React.FC = () => {
       onPress={toggleTheme}
       style={styles.button}
     >
-      <MaterialCommunityIcons 
-        name={theme === 'light' ? "moon-waning-crescent" : "white-balance-sunny"} 
-        size={20} 
-        color={theme === 'light' ? "#4A5568" : "#FBBF24"} 
-      />
+      <Icon name={theme === 'light' ? 'moon-waning-crescent' : 'white-balance-sunny'} size={20} color={theme === 'light' ? '#4A5568' : '#FBBF24'} />
     </NeumorphicButton>
   );
 };

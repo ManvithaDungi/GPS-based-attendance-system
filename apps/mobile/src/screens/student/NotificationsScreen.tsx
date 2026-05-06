@@ -12,7 +12,7 @@ import {
   ActivityIndicator,
   TouchableOpacity
 } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import Icon from '../../components/Icon';
 import { useTheme } from '../../context/ThemeContext';
 import { colors } from '../../theme/colors';
 import { NeumorphicCard, NeumorphicButton } from '../../components/NeumorphicCard';
@@ -106,7 +106,7 @@ export const NotificationsScreen: React.FC = () => {
   if (error) {
     return (
       <View style={[styles.container, styles.centered, { backgroundColor: themeColors.background }]}>
-        <MaterialCommunityIcons name="alert-circle-outline" size={64} color={colors.light.error} />
+        <Icon name="alert-circle-outline" size={64} color={colors.light.error} />
         <Text style={[styles.emptyText, { color: themeColors.text, marginTop: 16 }]}>{error}</Text>
         <TouchableOpacity style={{ marginTop: 24 }} onPress={() => { setIsLoading(true); fetchNotifications(); }}>
           <Text style={[styles.actionText, { color: colors.light.success }]}>Try Again</Text>
@@ -142,7 +142,7 @@ export const NotificationsScreen: React.FC = () => {
           <TouchableOpacity key={item.id || index} onPress={() => !item.read && markAsRead(item.id)}>
             <NeumorphicCard style={[styles.notifCard, item.read && { opacity: 0.7 }]}>
               <View style={[styles.iconBox, { backgroundColor: getIconBg(item.type) }]}>
-                <MaterialCommunityIcons name={getIconName(item.type)} size={20} color="#FFF" />
+                <Icon name={getIconName(item.type)} size={20} color="#FFF" />
               </View>
 
               <View style={styles.cardContent}>
@@ -165,7 +165,7 @@ export const NotificationsScreen: React.FC = () => {
         ))
       ) : (
         <View style={styles.emptyContainer}>
-          <MaterialCommunityIcons name="bell-off-outline" size={64} color={themeColors.outline + '30'} />
+          <Icon name="bell-off-outline" size={64} color={themeColors.outline + '30'} />
           <Text style={[styles.emptyText, { color: themeColors.textSecondary }]}>
             No notifications yet
           </Text>

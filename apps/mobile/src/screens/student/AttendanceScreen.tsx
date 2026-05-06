@@ -12,7 +12,7 @@ import {
   ActivityIndicator,
   TouchableOpacity
 } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import Icon from '../../components/Icon';
 import { useTheme } from '../../context/ThemeContext';
 import { colors } from '../../theme/colors';
 import { NeumorphicCard } from '../../components/NeumorphicCard';
@@ -95,19 +95,11 @@ export const AttendanceScreen: React.FC = () => {
 
         <View style={styles.toggle}>
           <TouchableOpacity onPress={() => setViewMode('list')}>
-            <MaterialCommunityIcons 
-              name="format-list-bulleted" 
-              size={22} 
-              color={viewMode === 'list' ? '#4F8EF7' : themeColors.textSecondary} 
-            />
+            <Icon name="format-list-bulleted" size={22} color={viewMode === 'list' ? '#4F8EF7' : themeColors.textSecondary} />
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => setViewMode('calendar')}>
-            <MaterialCommunityIcons 
-              name="calendar-month" 
-              size={22} 
-              color={viewMode === 'calendar' ? '#4F8EF7' : themeColors.textSecondary} 
-            />
+            <Icon name="calendar-month" size={22} color={viewMode === 'calendar' ? '#4F8EF7' : themeColors.textSecondary} />
           </TouchableOpacity>
         </View>
       </View>

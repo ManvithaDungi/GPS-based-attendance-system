@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import Icon from './Icon';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { colors } from '../theme/colors';
@@ -42,11 +42,7 @@ export const AppHeader: React.FC = () => {
 
          {/* RIGHT */}
          <TouchableOpacity style={styles.iconBtn} onPress={toggleTheme}>
-            <MaterialCommunityIcons
-               name={theme === 'light' ? 'weather-night' : 'white-balance-sunny'}
-               size={22}
-               color={themeColors.text}
-            />
+            <Icon name={theme === 'light' ? 'weather-night' : 'white-balance-sunny'} size={22} color={themeColors.text} />
          </TouchableOpacity>
       </View>
    );

@@ -14,7 +14,7 @@ import {
 import * as Application from 'expo-application';
 import * as Device from 'expo-device';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import Icon from '../../components/Icon';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { colors } from '../../theme/colors';
@@ -77,7 +77,7 @@ export const LoginScreen: React.FC = () => {
         {/* HEADER */}
         <View style={styles.header}>
           <NeumorphicCard style={styles.logoContainer}>
-            <MaterialCommunityIcons name="fingerprint" size={48} color={themeColors.primary} />
+            <Icon name="fingerprint" size={48} color={themeColors.primary} />
           </NeumorphicCard>
           <Text style={[styles.title, { color: themeColors.text }]}>InDaZone</Text>
           <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>
@@ -94,12 +94,7 @@ export const LoginScreen: React.FC = () => {
               EMAIL ADDRESS
             </Text>
             <View style={[styles.inputWrapper, { backgroundColor: themeColors.surface }]}>
-              <MaterialCommunityIcons
-                name="email-outline"
-                size={20}
-                color={themeColors.outline}
-                style={styles.inputIcon}
-              />
+              <Icon name="email-outline" size={20} color={themeColors.outline} style={styles.inputIcon} />
               <TextInput
                 style={[styles.input, { color: themeColors.text }]}
                 placeholder="student@university.edu"
@@ -126,12 +121,7 @@ export const LoginScreen: React.FC = () => {
             </View>
 
             <View style={[styles.inputWrapper, { backgroundColor: themeColors.surface }]}>
-              <MaterialCommunityIcons
-                name="lock-outline"
-                size={20}
-                color={themeColors.outline}
-                style={styles.inputIcon}
-              />
+              <Icon name="lock-outline" size={20} color={themeColors.outline} style={styles.inputIcon} />
               <TextInput
                 style={[styles.input, { color: themeColors.text }]}
                 placeholder="••••••••"
@@ -141,11 +131,7 @@ export const LoginScreen: React.FC = () => {
                 secureTextEntry={!showPassword}
               />
               <Pressable onPress={() => setShowPassword(!showPassword)}>
-                <MaterialCommunityIcons
-                  name={showPassword ? "eye-off-outline" : "eye-outline"}
-                  size={20}
-                  color={themeColors.outline}
-                />
+                <Icon name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={themeColors.outline} />
               </Pressable>
             </View>
           </View>
@@ -164,7 +150,7 @@ export const LoginScreen: React.FC = () => {
             ) : (
               <>
                 <Text style={styles.loginButtonText}>Sign In to Dashboard</Text>
-                <MaterialCommunityIcons name="arrow-right" size={20} color="#FFF" />
+                <Icon name="arrow-right" size={20} color="#FFF" />
               </>
             )}
           </Pressable>
