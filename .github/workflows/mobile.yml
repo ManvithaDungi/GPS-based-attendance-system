@@ -81,7 +81,7 @@ jobs:
         run: npx expo export -p web
 
       - name: Add Vercel static config
-        run: cp apps/mobile/vercel.json "${{ github.workspace }}/apps/mobile/dist/vercel.json"
+        run: cp vercel.json "${{ github.workspace }}/apps/mobile/dist/vercel.json"
 
       - name: Deploy Preview (Pull Request)
         if: github.event_name == 'pull_request'
