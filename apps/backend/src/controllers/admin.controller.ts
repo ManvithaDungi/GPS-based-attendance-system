@@ -191,12 +191,20 @@ export const getStudentAttendance = async (req: Request, res: Response): Promise
 
 export const getAllAttendance = async (req: Request, res: Response): Promise<Response> => {
   try {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
-    const skip = (page - 1) * limit;
+    const querySchema = z.object({
+      page: z.preprocess((v) => (Array.isArray(v) ? v[0] : v), z.coerce.number().int().positive().optional()),
+      limit: z.preprocess((v) => (Array.isArray(v) ? v[0] : v), z.coerce.number().int().positive().optional()),
+      from: z.preprocess((v) => (Array.isArray(v) ? v[0] : v), z.string().min(1).optional()),
+      to: z.preprocess((v) => (Array.isArray(v) ? v[0] : v), z.string().min(1).optional()),
+      status: z.preprocess((v) => (Array.isArray(v) ? v[0] : v), z.enum(['PRESENT', 'ABSENT', 'LATE', 'PENDING']).optional()),
+      studentId: z.preprocess((v) => (Array.isArray(v) ? v[0] : v), z.string().uuid().optional()),
+    });
 
-    const fromRaw = req.query.from as string | undefined;
-    const toRaw = req.query.to as string | undefined;
+    const query = querySchema.parse(req.query);
+
+    const page = query.page ?? 1;
+    const limit = Math.min(Math.max(query.limit ?? 20, 1), 100);
+    const skip = (page - 1) * limit;
 
     const normalizeDateOnly = (value: string): Date => {
       const d = new Date(value);
@@ -206,16 +214,18 @@ export const getAllAttendance = async (req: Request, res: Response): Promise<Res
     };
 
     const dateFilter =
-      fromRaw || toRaw
+      query.from || query.to
         ? {
-            ...(fromRaw ? { gte: normalizeDateOnly(fromRaw) } : {}),
-            ...(toRaw ? { lte: normalizeDateOnly(toRaw) } : {}),
+            ...(query.from ? { gte: normalizeDateOnly(query.from) } : {}),
+            ...(query.to ? { lte: normalizeDateOnly(query.to) } : {}),
           }
         : undefined;
 
     const where = {
       deletedAt: null as Date | null,
       ...(dateFilter ? { date: dateFilter } : {}),
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.studentId ? { studentId: query.studentId } : {}),
     };
 
     const [attendance, total] = await Promise.all([
@@ -236,7 +246,13 @@ export const getAllAttendance = async (req: Request, res: Response): Promise<Res
       data: attendance,
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
-  } catch {
+  } catch (error: unknown) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'VALIDATION_ERROR', details: error.errors });
+    }
+    if (error instanceof Error && error.message === 'INVALID_DATE') {
+      return res.status(400).json({ error: 'VALIDATION_ERROR', details: [{ message: 'Invalid from/to date' }] });
+    }
     return res.status(500).json({ error: 'INTERNAL_ERROR' });
   }
 };
@@ -387,6 +403,14 @@ export const updateWorkingHours = async (req: Request, res: Response): Promise<R
   try {
     const locationId = req.params.locationId;
     const data = updateWorkingHoursSchema.parse(req.body);
+
+    const location = await prisma.location.findFirst({
+      where: { id: locationId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!location) {
+      return res.status(404).json({ error: 'LOCATION_NOT_FOUND' });
+    }
 
     const updated = await prisma.workingHours.upsert({
       where: { locationId },

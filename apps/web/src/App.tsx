@@ -13,6 +13,7 @@ import { Attendance } from './pages/Attendance';
 import { Premises } from './pages/Premises';
 import { Logs } from './pages/Logs';
 import { Students } from './pages/Students';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const token = localStorage.getItem('accessToken');
@@ -43,32 +44,34 @@ export default function App() {
   }, []);
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        
-        <Route path="/" element={
-          <ProtectedRoute><Overview /></ProtectedRoute>
-        } />
-        
-        <Route path="/attendance" element={
-          <ProtectedRoute><Attendance /></ProtectedRoute>
-        } />
+    <ErrorBoundary>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          
+          <Route path="/" element={
+            <ProtectedRoute><Overview /></ProtectedRoute>
+          } />
+          
+          <Route path="/attendance" element={
+            <ProtectedRoute><Attendance /></ProtectedRoute>
+          } />
 
-        <Route path="/students" element={
-          <ProtectedRoute><Students /></ProtectedRoute>
-        } />
-        
-        <Route path="/premises" element={
-          <ProtectedRoute><Premises /></ProtectedRoute>
-        } />
-        
-        <Route path="/logs" element={
-          <ProtectedRoute><Logs /></ProtectedRoute>
-        } />
+          <Route path="/students" element={
+            <ProtectedRoute><Students /></ProtectedRoute>
+          } />
+          
+          <Route path="/premises" element={
+            <ProtectedRoute><Premises /></ProtectedRoute>
+          } />
+          
+          <Route path="/logs" element={
+            <ProtectedRoute><Logs /></ProtectedRoute>
+          } />
 
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }

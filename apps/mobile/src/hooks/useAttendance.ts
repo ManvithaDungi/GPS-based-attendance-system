@@ -14,6 +14,13 @@ export interface AttendanceToday {
   isInside: boolean;
 }
 
+type CheckLocationParams = {
+  lat: number;
+  lng: number;
+  locationId: string;
+  accuracyMeters: number;
+};
+
 export const useAttendance = () => {
   const [todayAttendance, setTodayAttendance] = useState<AttendanceToday | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -33,7 +40,8 @@ export const useAttendance = () => {
         checkInTime: response.data?.checkInTime ?? null,
         checkOutTime: response.data?.checkOutTime ?? null,
         duration: response.data?.durationHours ? `${Math.floor(response.data.durationHours)}h ${Math.round((response.data.durationHours % 1) * 60)}m` : '0h 0m',
-        isInside: response.data?.isInside ?? false,
+        // Backend does not currently return geofence validation on this endpoint.
+        isInside: false,
       };
       setTodayAttendance(normalizedData);
       console.log('✅ Today Attendance:', JSON.stringify(normalizedData, null, 2));
@@ -72,23 +80,35 @@ export const useAttendance = () => {
     return () => clearInterval(interval);
   }, [todayAttendance]);
 
-  const checkIn = async (location: { lat: number, lng: number }) => {
+  const checkIn = async (location: CheckLocationParams) => {
     try {
-      const response = await api.post('/attendance/checkin', location);
-      setTodayAttendance(response.data);
+      await api.post('/attendance/checkin', {
+        lat: location.lat,
+        lng: location.lng,
+        timestamp: new Date().toISOString(),
+        locationId: location.locationId,
+        accuracyMeters: location.accuracyMeters,
+      });
+      await fetchToday();
       return { success: true };
     } catch (error: any) {
-      return { success: false, error: error.response?.data?.code || 'ERROR' };
+      return { success: false, error: error.response?.data?.error || 'ERROR' };
     }
   };
 
-  const checkOut = async (location: { lat: number, lng: number }) => {
+  const checkOut = async (location: CheckLocationParams) => {
     try {
-      const response = await api.post('/attendance/checkout', location);
-      setTodayAttendance(response.data);
+      await api.post('/attendance/checkout', {
+        lat: location.lat,
+        lng: location.lng,
+        timestamp: new Date().toISOString(),
+        locationId: location.locationId,
+        accuracyMeters: location.accuracyMeters,
+      });
+      await fetchToday();
       return { success: true };
     } catch (error: any) {
-      return { success: false, error: error.response?.data?.code || 'ERROR' };
+      return { success: false, error: error.response?.data?.error || 'ERROR' };
     }
   };
 

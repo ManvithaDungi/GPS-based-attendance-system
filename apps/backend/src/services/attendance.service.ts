@@ -101,7 +101,15 @@ export const recordCheckOut = async ({
     throw new AttendanceServiceError('OUTSIDE_GEOFENCE', distance, location.radiusMeters);
   }
 
-  const durationHours = (timestamp.getTime() - log.checkInTime!.getTime()) / (1000 * 60 * 60);
+  if (!log.checkInTime) {
+    throw new AttendanceServiceError('INVALID_STATE');
+  }
+
+  if (timestamp.getTime() <= log.checkInTime.getTime()) {
+    throw new AttendanceServiceError('INVALID_TIMESTAMP');
+  }
+
+  const durationHours = (timestamp.getTime() - log.checkInTime.getTime()) / (1000 * 60 * 60);
 
   // Default to ABSENT, only upgrade to PRESENT/LATE if duration is sufficient
   let status: AttendanceStatus = 'ABSENT';

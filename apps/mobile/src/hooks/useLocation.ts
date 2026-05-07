@@ -16,16 +16,24 @@ export interface LocationState {
   isInside: boolean;
 }
 
+type GeofenceLocation = {
+  id: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  radiusMeters: number;
+};
+
 export const useLocation = () => {
   const [location, setLocation] = useState<LocationState | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [geofence, setGeofence] = useState<{ center: { lat: number, lng: number }, radius: number } | null>(null);
+  const [geofence, setGeofence] = useState<GeofenceLocation | null>(null);
 
   useEffect(() => {
     const fetchGeofence = async () => {
       try {
         const response = await api.get('/geofence/locations');
-        setGeofence(response.data[0]);
+        setGeofence(response.data?.data?.[0] ?? null);
       } catch (e) {
         console.error('Failed to fetch geofence', e);
       }
@@ -54,7 +62,12 @@ export const useLocation = () => {
           
           try {
             const validateResponse = await api.get('/geofence/validate', {
-              params: { lat: latitude, lng: longitude }
+              params: {
+                lat: latitude,
+                lng: longitude,
+                locationId: geofence?.id,
+                accuracyMeters: accuracy ?? 999,
+              }
             });
             
             setLocation({
@@ -62,19 +75,19 @@ export const useLocation = () => {
               longitude,
               accuracy: accuracy || null,
               speed: speed || null,
-              distanceFromCenter: validateResponse.data.distance,
-              isInside: validateResponse.data.isInside
+              distanceFromCenter: validateResponse.data.distanceM,
+              isInside: validateResponse.data.isWithinGeofence
             });
           } catch (e) {
             if (geofence) {
-              const dist = calculateDistance(latitude, longitude, geofence.center.lat, geofence.center.lng);
+              const dist = calculateDistance(latitude, longitude, geofence.latitude, geofence.longitude);
               setLocation({
                 latitude,
                 longitude,
                 accuracy: accuracy || null,
                 speed: speed || null,
                 distanceFromCenter: dist,
-                isInside: dist <= geofence.radius
+                isInside: dist <= geofence.radiusMeters
               });
             }
           }

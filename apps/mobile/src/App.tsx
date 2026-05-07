@@ -12,6 +12,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { LoginScreen } from './screens/auth/LoginScreen';
 import { MainLayout } from './components/MainLayout';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 const Stack = createNativeStackNavigator();
 
@@ -49,7 +50,9 @@ const App = () => {
     <SafeAreaProvider>
       <AuthProvider>
         <ThemeProvider>
-          <Navigation />
+          <ErrorBoundary>
+            <Navigation />
+          </ErrorBoundary>
         </ThemeProvider>
       </AuthProvider>
     </SafeAreaProvider>

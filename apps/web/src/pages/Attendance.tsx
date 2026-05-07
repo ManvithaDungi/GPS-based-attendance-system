@@ -76,7 +76,8 @@ export const Attendance = () => {
           status: formatStatus(row.status),
           punctuality: row.punctuality === 'ON_TIME' ? 'On Time' : row.punctuality === 'LATE' ? 'Late' : '-',
           checkIn: formatTime(row.checkInTime),
-          checkInDate: formatDateFilterValue(row.checkInTime),
+          // Use the record's `date` (always present) so PENDING/ABSENT logs can be filtered by date.
+          checkInDate: formatDateFilterValue(row.date ?? row.checkInTime),
           checkOut: formatTime(row.checkOutTime),
           duration: formatDuration(row.durationHours),
         }));
