@@ -47,6 +47,8 @@ jobs:
         working-directory: ${{ env.WORKING_DIR }}
     env:
       VITE_API_URL: ${{ secrets.VITE_API_URL }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
     steps:
       - uses: actions/checkout@v4
 
@@ -61,7 +63,7 @@ jobs:
 
       - name: Validate required env
         run: |
-          [ -n "${{ secrets.VITE_API_URL }}" ] || (echo "VITE_API_URL is not set" && exit 1)
+          [ -n "$VITE_API_URL" ] || (echo "VITE_API_URL is not set" && exit 1)
 
       - name: Build web app
         run: npm run build
@@ -69,34 +71,30 @@ jobs:
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
 
-      - name: Pull Vercel environment & link project
+      - name: Pull Vercel environment
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
-      - name: Package Vercel output for deploy
+      - name: Package Vercel Build Output
+        # heredoc must be at column 0 — any indentation corrupts the JSON
         run: |
           mkdir -p .vercel/output/static
           cp -r dist/. .vercel/output/static/
-          cat > .vercel/output/config.json <<'EOF'
-          {
-            "version": 3,
-            "routes": [
-              { "handle": "filesystem" },
-              { "src": "/(.*)", "dest": "/index.html" }
-            ]
-          }
+          cat > .vercel/output/config.json << 'EOF'
+          {"version":3,"routes":[{"handle":"filesystem"},{"src":"/(.*)","dest":"/index.html"}]}
           EOF
 
-      # Upload the entire .vercel/ dir (includes project.json + output/)
-      # so the deploy job needs zero vercel pull / vercel build
-      - name: Upload Vercel output artifact
+      - name: Verify output exists
+        run: find .vercel/ -type f
+
+      - name: Upload Vercel artifact
         uses: actions/upload-artifact@v4
         with:
           name: vercel-output
-          path: ${{ env.WORKING_DIR }}/.vercel/
+          # upload-artifact runs from repo root, not working-directory
+          # so this path must be relative to repo root
+          path: apps/web/.vercel/
           retention-days: 1
+          if-no-files-found: error
 
   deploy:
     name: Deploy to Vercel
@@ -112,16 +110,16 @@ jobs:
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
 
-      # Restore the full .vercel/ dir (project.json + output/) into apps/web
-      # No vercel pull needed — project.json is already in the artifact
       - name: Download Vercel artifact
         uses: actions/download-artifact@v4
         with:
           name: vercel-output
-          path: ${{ env.WORKING_DIR }}/.vercel/
+          # restore into apps/web/.vercel/ from repo root
+          path: apps/web/.vercel/
 
-      # --prebuilt reads .vercel/output/ relative to cwd (apps/web)
-      # project.json is already there — no path doubling
+      - name: Verify artifact contents
+        run: find apps/web/.vercel/ -type f
+
       - name: Deploy to Vercel
         run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
         working-directory: ${{ env.WORKING_DIR }}
