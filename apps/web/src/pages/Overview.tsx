@@ -4,7 +4,7 @@
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Clock, MapPin, RefreshCw, UserCheck, Users, UserX, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Clock, MapPin, RefreshCw, UserCheck, Users, UserX, ChevronLeft, ChevronRight, Hourglass } from 'lucide-react';
 import api from '../lib/api';
 import { NeumorphicCard } from '../components/common/NeumorphicCard';
 import { cn } from '../lib/utils';
@@ -16,6 +16,7 @@ type DashboardStats = {
   presentToday: number;
   absentToday: number;
   lateToday: number;
+  pendingToday: number; // FIX: added — checked in, not yet checked out
   totalLocations: number;
 };
 
@@ -28,6 +29,7 @@ type DayDetail = {
   present: number;
   absent: number;
   late: number;
+  pending: number;
 };
 
 type AttendanceCalendarProps = {
@@ -45,8 +47,8 @@ type AttendanceCalendarProps = {
 const formatNumber = (value?: number) => (value ?? 0).toLocaleString('en-IN');
 
 const MONTHS = [
-  'January','February','March','April','May','June',
-  'July','August','September','October','November','December',
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
 const toDateStr = (year: number, month: number, day: number) => {
@@ -101,7 +103,6 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ onDayDetailChan
 
     const dateStr = toDateStr(year, month, day);
     try {
-      // Uses admin endpoint: GET /admin/attendance?from=YYYY-MM-DD&to=YYYY-MM-DD&limit=1000
       const res = await api.get(`/admin/attendance?from=${dateStr}&to=${dateStr}&limit=1000`);
 
       const records: any[] =
@@ -112,11 +113,14 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ onDayDetailChan
         res.data ??
         [];
 
-      const present = records.filter((r: any) => r.status === 'PRESENT').length;
-      const late    = records.filter((r: any) => r.status === 'LATE').length;
-      const absent  = records.filter((r: any) => r.status === 'ABSENT').length;
+      // PENDING = checked in, not yet checked out — must not bleed into other counts
+      const pending  = records.filter((r: any) => r.status === 'PENDING').length;
+      const resolved = records.filter((r: any) => r.status !== 'PENDING');
+      const present  = resolved.filter((r: any) => r.status === 'PRESENT').length;
+      const late     = resolved.filter((r: any) => r.status === 'LATE').length;
+      const absent   = resolved.filter((r: any) => r.status === 'ABSENT').length;
 
-      setDayDetail({ present, late, absent });
+      setDayDetail({ present, late, absent, pending });
     } catch {
       setDayDetail(null);
     } finally {
@@ -154,7 +158,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ onDayDetailChan
 
       {/* Day-of-week headers */}
       <div className="grid grid-cols-7">
-        {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => (
+        {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => (
           <div key={d} className="text-center text-[10px] font-bold text-slate-400 uppercase pb-1">{d}</div>
         ))}
       </div>
@@ -175,7 +179,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ onDayDetailChan
               onClick={() => handleDayClick(day)}
               className={cn(
                 'aspect-square flex items-center justify-center rounded-lg text-xs font-bold transition-all',
-                isFuture  && 'text-slate-300 dark:text-slate-700 cursor-not-allowed',
+                isFuture   && 'text-slate-300 dark:text-slate-700 cursor-not-allowed',
                 !isFuture && !isSelected && 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
                 isToday   && !isSelected && 'text-primary ring-1 ring-primary/40',
                 isSelected && 'bg-primary text-white shadow-md scale-110',
@@ -186,7 +190,6 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ onDayDetailChan
           );
         })}
       </div>
-
     </div>
   );
 };
@@ -214,14 +217,12 @@ export const Overview = () => {
           api.get('/auth/me'),
         ]);
 
-        const totalStudents = dashboardRes.data.totalStudents ?? 0;
-        const presentToday  = dashboardRes.data.presentToday ?? 0;
-
         setStats({
-          totalStudents,
-          presentToday,
-          absentToday:    totalStudents - presentToday,
-          lateToday:      dashboardRes.data.lateToday ?? 0,
+          totalStudents:  dashboardRes.data.totalStudents  ?? 0,
+          presentToday:   dashboardRes.data.presentToday   ?? 0,
+          absentToday:    dashboardRes.data.absentToday    ?? 0, // FIX: never derived as total - present
+          lateToday:      dashboardRes.data.lateToday      ?? 0,
+          pendingToday:   dashboardRes.data.pendingToday   ?? 0, // FIX: now surfaced from backend
           totalLocations: dashboardRes.data.totalLocations ?? 0,
         });
 
@@ -258,11 +259,14 @@ export const Overview = () => {
     );
   }
 
+  // FIX: 5 stat cards — pendingToday added so present + late + absent + pending
+  // always equals the number of students who have checked in today.
   const statCards = [
-    { label: 'Total Students', value: stats.totalStudents, icon: Users,    color: 'text-primary', bg: 'bg-primary/10' },
-    { label: 'Present Today',  value: stats.presentToday,  icon: UserCheck, color: 'text-success', bg: 'bg-success/10' },
-    { label: 'Absent Today',   value: stats.absentToday,   icon: UserX,     color: 'text-danger',  bg: 'bg-danger/10'  },
-    { label: 'Late Today',     value: stats.lateToday,     icon: Clock,     color: 'text-warning', bg: 'bg-warning/10' },
+    { label: 'Total Students', value: stats.totalStudents, icon: Users,     color: 'text-primary',   bg: 'bg-primary/10'                           },
+    { label: 'Present Today',  value: stats.presentToday,  icon: UserCheck, color: 'text-success',   bg: 'bg-success/10'                           },
+    { label: 'Absent Today',   value: stats.absentToday,   icon: UserX,     color: 'text-danger',    bg: 'bg-danger/10'                            },
+    { label: 'Late Today',     value: stats.lateToday,     icon: Clock,     color: 'text-warning',   bg: 'bg-warning/10'                           },
+    { label: 'Pending',        value: stats.pendingToday,  icon: Hourglass, color: 'text-slate-400', bg: 'bg-slate-100 dark:bg-slate-800'          },
   ];
 
   return (
@@ -277,8 +281,8 @@ export const Overview = () => {
         </p>
       </div>
 
-      {/* Stat Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+      {/* Stat Cards — 2 cols mobile → 3 cols md → 5 cols xl */}
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-6">
         {statCards.map((card) => (
           <NeumorphicCard key={card.label} className="p-6 group hover:translate-y-[-4px]">
             <div className="flex justify-between items-start mb-4">
@@ -313,31 +317,32 @@ export const Overview = () => {
                 </div>
               ) : selectedAttendance.detail ? (
                 <>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     <div className="bg-bg-light dark:bg-bg-dark p-5 rounded-2xl neumorphic-inset">
-                      <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">
-                        Present
-                      </p>
+                      <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Present</p>
                       <p className="text-2xl font-black text-success mt-2">
                         {formatNumber(selectedAttendance.detail.present)}
                       </p>
                     </div>
 
                     <div className="bg-bg-light dark:bg-bg-dark p-5 rounded-2xl neumorphic-inset">
-                      <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">
-                        Absent
-                      </p>
+                      <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Absent</p>
                       <p className="text-2xl font-black text-danger mt-2">
                         {formatNumber(selectedAttendance.detail.absent)}
                       </p>
                     </div>
 
                     <div className="bg-bg-light dark:bg-bg-dark p-5 rounded-2xl neumorphic-inset">
-                      <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">
-                        Late
-                      </p>
+                      <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Late</p>
                       <p className="text-2xl font-black text-warning mt-2">
                         {formatNumber(selectedAttendance.detail.late)}
+                      </p>
+                    </div>
+
+                    <div className="bg-bg-light dark:bg-bg-dark p-5 rounded-2xl neumorphic-inset">
+                      <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Pending</p>
+                      <p className="text-2xl font-black text-slate-400 mt-2">
+                        {formatNumber(selectedAttendance.detail.pending)}
                       </p>
                     </div>
                   </div>

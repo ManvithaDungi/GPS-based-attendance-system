@@ -7,6 +7,24 @@ import {
   createAdminLocationSchema,
   updateAdminLocationSchema,
 } from '../schemas/admin-location.schemas';
+// FIX: Import getDashboardStats from the service — do NOT define it here again.
+// The old local version used prisma.location (wrong model name), counted all
+// check-ins as "present" without filtering by status, and omitted absentToday
+// and pendingToday entirely.
+import { getDashboardStats } from '../services/attendance.service';
+
+// ─── Dashboard ────────────────────────────────────────────────────────────────
+
+export const getDashboard = async (req: Request, res: Response): Promise<Response> => {
+  try {
+    const stats = await getDashboardStats();
+    return res.status(200).json(stats);
+  } catch {
+    return res.status(500).json({ error: 'INTERNAL_ERROR' });
+  }
+};
+
+// ─── Schemas ──────────────────────────────────────────────────────────────────
 
 const createStudentSchema = z.object({
   name: z.string().min(1),
@@ -19,6 +37,15 @@ const updateStudentStatusSchema = z.object({
   status: z.enum(['ACTIVE', 'SUSPENDED']),
 });
 
+const updateWorkingHoursSchema = z.object({
+  startTime: z.string().optional(),
+  endTime: z.string().optional(),
+  lateThresholdMins: z.number().optional(),
+  minDurationHours: z.number().optional(),
+});
+
+// ─── Cache helpers ────────────────────────────────────────────────────────────
+
 const invalidateGeofenceCache = async (locationId?: string): Promise<void> => {
   try {
     const redis = getRedisClient();
@@ -29,6 +56,8 @@ const invalidateGeofenceCache = async (locationId?: string): Promise<void> => {
     // Cache invalidation is best-effort; database write already succeeded.
   }
 };
+
+// ─── Students ─────────────────────────────────────────────────────────────────
 
 export const createStudent = async (req: Request, res: Response): Promise<Response> => {
   try {
@@ -107,61 +136,35 @@ export const updateStudentStatus = async (req: Request, res: Response): Promise<
   }
 };
 
-export const getAllAttendance = async (req: Request, res: Response): Promise<Response> => {
-  try {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
-    const skip = (page - 1) * limit;
-
-    const attendance = await prisma.attendanceLog.findMany({
-      skip,
-      take: limit,
-      orderBy: { date: 'desc' },
-      include: {
-        student: { select: { name: true, studentCode: true } },
-        location: { select: { name: true } },
-      }
-    });
-
-    const total = await prisma.attendanceLog.count();
-
-    return res.status(200).json({
-      data: attendance,
-      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
-    });
-  } catch (error) {
-    return res.status(500).json({ error: 'INTERNAL_ERROR' });
-  }
-};
-
 export const getAllStudents = async (req: Request, res: Response): Promise<Response> => {
   try {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
     const skip = (page - 1) * limit;
 
-    const students = await prisma.user.findMany({
-      where: { role: 'STUDENT' },
-      skip,
-      take: limit,
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        studentCode: true,
-        status: true,
-        createdAt: true,
-      }
-    });
-
-    const total = await prisma.user.count({ where: { role: 'STUDENT' } });
+    const [students, total] = await Promise.all([
+      prisma.user.findMany({
+        where: { role: 'STUDENT' },
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          studentCode: true,
+          status: true,
+          createdAt: true,
+        },
+      }),
+      prisma.user.count({ where: { role: 'STUDENT' } }),
+    ]);
 
     return res.status(200).json({
       data: students,
-      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
-  } catch (error) {
+  } catch {
     return res.status(500).json({ error: 'INTERNAL_ERROR' });
   }
 };
@@ -169,62 +172,99 @@ export const getAllStudents = async (req: Request, res: Response): Promise<Respo
 export const getStudentAttendance = async (req: Request, res: Response): Promise<Response> => {
   try {
     const studentId = req.params.studentId;
-    
+
     const attendance = await prisma.attendanceLog.findMany({
-      where: { studentId },
+      where: { studentId, deletedAt: null }, // FIX: was missing deletedAt filter
       orderBy: { date: 'desc' },
       include: {
         location: { select: { name: true } },
-      }
+      },
     });
 
     return res.status(200).json({ data: attendance });
-  } catch (error) {
+  } catch {
     return res.status(500).json({ error: 'INTERNAL_ERROR' });
   }
 };
 
-export const getDashboardStats = async (req: Request, res: Response): Promise<Response> => {
-  try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+// ─── Attendance ───────────────────────────────────────────────────────────────
 
-    const totalStudents = await prisma.user.count({ where: { role: 'STUDENT' } });
-    const todayAttendance = await prisma.attendanceLog.count({ where: { date: today } });
-    const lateToday = await prisma.attendanceLog.count({ where: { date: today, punctuality: 'LATE' } });
-    const totalLocations = await prisma.location.count({ where: { deletedAt: null } });
+export const getAllAttendance = async (req: Request, res: Response): Promise<Response> => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const skip = (page - 1) * limit;
+
+    const fromRaw = req.query.from as string | undefined;
+    const toRaw = req.query.to as string | undefined;
+
+    const normalizeDateOnly = (value: string): Date => {
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) throw new Error('INVALID_DATE');
+      d.setHours(0, 0, 0, 0);
+      return d;
+    };
+
+    const dateFilter =
+      fromRaw || toRaw
+        ? {
+            ...(fromRaw ? { gte: normalizeDateOnly(fromRaw) } : {}),
+            ...(toRaw ? { lte: normalizeDateOnly(toRaw) } : {}),
+          }
+        : undefined;
+
+    const where = {
+      deletedAt: null as Date | null,
+      ...(dateFilter ? { date: dateFilter } : {}),
+    };
+
+    const [attendance, total] = await Promise.all([
+      prisma.attendanceLog.findMany({
+        where, // supports deletedAt + optional from/to date filtering
+        skip,
+        take: limit,
+        orderBy: { date: 'desc' },
+        include: {
+          student: { select: { name: true, studentCode: true } },
+          location: { select: { name: true } },
+        },
+      }),
+      prisma.attendanceLog.count({ where }), // count must match query filter
+    ]);
 
     return res.status(200).json({
-      totalStudents,
-      presentToday: todayAttendance,
-      lateToday,
-      totalLocations
+      data: attendance,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
-  } catch (error) {
+  } catch {
     return res.status(500).json({ error: 'INTERNAL_ERROR' });
   }
 };
+
+// ─── Reports ──────────────────────────────────────────────────────────────────
 
 export const getReports = async (req: Request, res: Response): Promise<Response> => {
   try {
-    // Generate a simple report (in a real app, this would trigger a BullMQ job)
     const reportJobs = await prisma.reportJob.findMany({
       orderBy: { createdAt: 'desc' },
-      take: 10
+      take: 10,
     });
     return res.status(200).json({ data: reportJobs });
-  } catch (error) {
+  } catch {
     return res.status(500).json({ error: 'INTERNAL_ERROR' });
   }
 };
+
+// ─── Config / Locations ───────────────────────────────────────────────────────
 
 export const getConfig = async (req: Request, res: Response): Promise<Response> => {
   try {
     const locations = await prisma.location.findMany({
-      include: { workingHours: true }
+      where: { deletedAt: null }, // FIX: was returning soft-deleted locations
+      include: { workingHours: true },
     });
     return res.status(200).json({ data: locations });
-  } catch (error) {
+  } catch {
     return res.status(500).json({ error: 'INTERNAL_ERROR' });
   }
 };
@@ -343,13 +383,6 @@ export const deleteLocation = async (req: Request, res: Response): Promise<Respo
   }
 };
 
-const updateWorkingHoursSchema = z.object({
-  startTime: z.string().optional(),
-  endTime: z.string().optional(),
-  lateThresholdMins: z.number().optional(),
-  minDurationHours: z.number().optional(),
-});
-
 export const updateWorkingHours = async (req: Request, res: Response): Promise<Response> => {
   try {
     const locationId = req.params.locationId;
@@ -360,11 +393,11 @@ export const updateWorkingHours = async (req: Request, res: Response): Promise<R
       update: data,
       create: {
         locationId,
-        startTime: data.startTime || '09:00',
-        endTime: data.endTime || '17:00',
-        lateThresholdMins: data.lateThresholdMins || 15,
-        minDurationHours: data.minDurationHours || 6,
-      }
+        startTime: data.startTime ?? '09:00',
+        endTime: data.endTime ?? '17:00',
+        lateThresholdMins: data.lateThresholdMins ?? 15,
+        minDurationHours: data.minDurationHours ?? 6,
+      },
     });
 
     return res.status(200).json({ message: 'Working hours updated', data: updated });

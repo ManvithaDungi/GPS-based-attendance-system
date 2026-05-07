@@ -8,8 +8,8 @@ export const Login = () => {
   const [mode, setMode] = useState<'login' | 'register'>('login');
 
   // Login fields
-  const [email, setEmail] = useState('admin@indazone.com');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
 
   // Register fields
   const [regName, setRegName] = useState('');
@@ -31,7 +31,17 @@ export const Login = () => {
     setError('');
 
     try {
-      const deviceId = `web-admin-${navigator.userAgent}`;
+      const getDeviceId = () => {
+        const key = 'deviceId';
+        let id = localStorage.getItem(key);
+        if (!id) {
+          id = crypto.randomUUID();
+          localStorage.setItem(key, id);
+        }
+        return id;
+      };
+
+      const deviceId = getDeviceId();
       const response = await api.post('/auth/login', { email, password, deviceId });
       if (response.data.user?.role !== 'ADMIN') {
         setError('Admin access is required for this portal');
@@ -90,11 +100,10 @@ export const Login = () => {
               key={m}
               type="button"
               onClick={() => switchMode(m)}
-              className={`flex-1 py-2.5 text-sm font-bold rounded-xl transition-all ${
-                mode === m
-                  ? 'bg-primary text-white shadow-[0_4px_12px_rgba(79,142,247,0.3)]'
-                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
-              }`}
+              className={`flex-1 py-2.5 text-sm font-bold rounded-xl transition-all ${mode === m
+                ? 'bg-primary text-white shadow-[0_4px_12px_rgba(79,142,247,0.3)]'
+                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                }`}
             >
               {m === 'login' ? 'Sign In' : 'Sign Up'}
             </button>
