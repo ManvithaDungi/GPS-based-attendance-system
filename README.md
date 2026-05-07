@@ -27,6 +27,18 @@ Attendance is validated using both **location** and **duration**:
 
 ---
 
+## Deployed Links
+
+- **Mobile webiste**: React Native with Expo - https://gps-based-attendance-system-j4mc.vercel.app/
+- **Admin webiste**: React with Vite - https://gps-based-attendance-system-khaki.vercel.app/attendance
+- **Backend**: Node.js + Express + TypeScript - https://gps-attendance-api.onrender.com/ - make sure your backend is running before u open the websites
+- **Database**: PostgreSQL with Prisma ORM
+- **Caching**: Redis
+- **Infrastructure**: Docker + Docker Compose
+- **Shared**: TypeScript types and constants
+
+---
+
 ## Project Structure
 
 ```
@@ -73,7 +85,7 @@ cp .env.example .env
 
 ```bash
 # Start PostgreSQL and Redis
-docker compose up -d postgres redis
+docker compose up --build
 
 # Verify services are running
 docker compose ps
@@ -96,8 +108,6 @@ npx prisma migrate dev
 # (Optional) Open Prisma Studio to view database
 npx prisma studio
 
-# Start development server
-npm run dev
 ```
 
 The backend API will be running on `http://localhost:3000`
@@ -111,13 +121,27 @@ cd apps/mobile
 npm install
 
 # Start Expo development server
-npm start
+npx expo start
 
 # Choose platform:
 # - 'a' for Android
 # - 'i' for iOS
 # - 'w' for web
 ```
+
+### 4. Setup Web Admin Dashboard App
+
+```bash
+cd apps/web
+
+# Install dependencies
+npm install
+
+# Start Expo development server
+npm run dev
+
+```
+The dashboard will be running on `http://localhost:5173`
 
 ### 5. Run Full Stack with Docker Compose
 
@@ -347,3 +371,5 @@ Attendance %:          88%
 - Integration with academic systems
 
 ---
+
+
