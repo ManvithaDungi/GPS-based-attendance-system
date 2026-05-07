@@ -103,26 +103,30 @@ export const recordCheckOut = async ({
 
   const durationHours = (timestamp.getTime() - log.checkInTime!.getTime()) / (1000 * 60 * 60);
 
-  let status: AttendanceStatus = 'PRESENT';
-  let punctuality: PunctualityStatus = 'ON_TIME';
+ // Default to ABSENT, only upgrade to PRESENT if duration is sufficient
+let status: AttendanceStatus = 'ABSENT';
+let punctuality: PunctualityStatus = 'ON_TIME';
 
-  if (location.workingHours) {
-    const [startHour, startMinute] = location.workingHours.startTime.split(':').map(Number);
-    const checkInDate = new Date(log.checkInTime!);
-    const expectedStart = new Date(checkInDate);
-    expectedStart.setHours(startHour, startMinute, 0, 0);
+if (location.workingHours) {
+  const [startHour, startMinute] = location.workingHours.startTime.split(':').map(Number);
+  const checkInDate = new Date(log.checkInTime!);
+  const expectedStart = new Date(checkInDate);
+  expectedStart.setHours(startHour, startMinute, 0, 0);
 
-    const minutesLate = (checkInDate.getTime() - expectedStart.getTime()) / (1000 * 60);
+  const minutesLate = (checkInDate.getTime() - expectedStart.getTime()) / (1000 * 60);
 
-    if (minutesLate > location.workingHours.lateThresholdMins) {
-      punctuality = 'LATE';
-      status = 'LATE';
-    }
-
-    if (durationHours < location.workingHours.minDurationHours) {
-      status = 'ABSENT';
-    }
+  if (durationHours < location.workingHours.minDurationHours) {
+    status = 'ABSENT';
+  } else if (minutesLate > location.workingHours.lateThresholdMins) {
+    punctuality = 'LATE';
+    status = 'LATE';
+  } else {
+    status = 'PRESENT';
   }
+} else {
+  // No working hours configured — require a sensible fallback minimum
+  status = durationHours >= 6 ? 'PRESENT' : 'ABSENT';
+}
 
   return prisma.attendanceLog.update({
     where: { id: log.id },
