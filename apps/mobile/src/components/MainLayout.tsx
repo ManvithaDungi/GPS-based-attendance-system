@@ -12,6 +12,7 @@ import { NotificationsScreen } from '../screens/student/NotificationsScreen';
 import { ProfileScreen } from '../screens/student/ProfileScreen';
 import { useTheme } from '../context/ThemeContext';
 import { colors } from '../theme/colors';
+import { rs, rvs, rms } from '../utils/responsive'; // ← responsive helpers
 
 const Tab = createBottomTabNavigator();
 
@@ -24,21 +25,19 @@ export const MainLayout: React.FC = () => {
       id="tabs"
       screenOptions={({ route }) => ({
 
-        // ❌ REMOVE default header (this was causing double layout)
         headerShown: false,
 
-        // ✅ FIX: floating tab bar
         tabBarStyle: {
           position: 'absolute',
-          left: 20,
-          right: 20,
-          bottom: 20,
-          height: 65,
-          borderRadius: 20,
+          left: rs(20),
+          right: rs(20),
+          bottom: rvs(20),
+          height: rvs(65),
+          borderRadius: rs(20),
           backgroundColor: themeColors.surface,
           borderTopWidth: 0,
-          paddingBottom: 8,
-          paddingTop: 8,
+          paddingBottom: rvs(8),
+          paddingTop: rvs(8),
 
           shadowColor: '#000',
           shadowOffset: { width: 6, height: 6 },
@@ -50,7 +49,6 @@ export const MainLayout: React.FC = () => {
         tabBarActiveTintColor: colors.light.success,
         tabBarInactiveTintColor: themeColors.textSecondary,
 
-        // ✅ icon logic
         tabBarIcon: ({ color }) => {
           let iconName = 'home';
 
@@ -59,17 +57,16 @@ export const MainLayout: React.FC = () => {
           else if (route.name === 'Notifications') iconName = 'bell';
           else if (route.name === 'Profile') iconName = 'account-circle';
 
-          return <Icon name={iconName} size={22} color={color} />;
+          return <Icon name={iconName} size={rs(22)} color={color} />;
         },
 
-        // ✅ FIX label clipping
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: rms(11),
           fontWeight: '600',
         },
 
         tabBarItemStyle: {
-          paddingVertical: 4,
+          paddingVertical: rvs(4),
         },
       })}
     >

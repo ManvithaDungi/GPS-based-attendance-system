@@ -4,13 +4,13 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
-  ActivityIndicator, 
-  TouchableOpacity 
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  ActivityIndicator,
+  TouchableOpacity
 } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import Icon from '../../components/Icon';
@@ -19,6 +19,7 @@ import { colors } from '../../theme/colors';
 import { NeumorphicCard } from '../../components/NeumorphicCard';
 import { StatusBadge } from '../../components/StatusBadge';
 import { api } from '../../services/api';
+import { rs, rvs, rms } from '../../utils/responsive';
 
 export const HistoryScreen: React.FC = () => {
   const { theme } = useTheme();
@@ -45,9 +46,9 @@ export const HistoryScreen: React.FC = () => {
 
   const markedDates = attendance.reduce((acc: any, curr: any) => {
     const date = curr.date;
-    acc[date] = { 
-      marked: true, 
-      dotColor: curr.status === 'PRESENT' ? colors.light.success : colors.light.error 
+    acc[date] = {
+      marked: true,
+      dotColor: curr.status === 'PRESENT' ? colors.light.success : colors.light.error
     };
     return acc;
   }, {});
@@ -78,6 +79,9 @@ export const HistoryScreen: React.FC = () => {
             textDayFontWeight: '600',
             textMonthFontWeight: '900',
             textDayHeaderFontWeight: '700',
+            textDayFontSize: rms(13),
+            textMonthFontSize: rms(15),
+            textDayHeaderFontSize: rms(11),
           }}
           markedDates={markedDates}
           onDayPress={(day) => setSelectedDate(day.dateString)}
@@ -86,14 +90,14 @@ export const HistoryScreen: React.FC = () => {
 
       <View style={styles.recordSection}>
         <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Record Details</Text>
-        
+
         {isLoading ? (
           <ActivityIndicator style={styles.loader} color={colors.light.success} />
         ) : selectedRecord ? (
           <NeumorphicCard style={styles.detailCard}>
             <View style={styles.detailRow}>
               <View style={styles.detailLabelGroup}>
-                <Icon name="calendar-check" size={20} color={themeColors.primary} />
+                <Icon name="calendar-check" size={rs(20)} color={themeColors.primary} />
                 <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>STATUS</Text>
               </View>
               <StatusBadge status={selectedRecord.status} />
@@ -122,7 +126,7 @@ export const HistoryScreen: React.FC = () => {
           </NeumorphicCard>
         ) : (
           <NeumorphicCard style={styles.emptyCard}>
-            <Icon name="calendar-blank" size={48} color={themeColors.outline + '40'} />
+            <Icon name="calendar-blank" size={rs(48)} color={themeColors.outline + '40'} />
             <Text style={[styles.emptyText, { color: themeColors.textSecondary }]}>
               No attendance record for this date
             </Text>
@@ -138,23 +142,23 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: 24,
-    gap: 24,
+    padding: rs(24),
+    gap: rs(24),
   },
   calendarCard: {
-    padding: 8,
+    padding: rs(8),
   },
   recordSection: {
-    gap: 16,
+    gap: rs(16),
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: rms(18),
     fontWeight: '900',
-    paddingLeft: 4,
+    paddingLeft: rs(4),
   },
   detailCard: {
-    padding: 20,
-    gap: 16,
+    padding: rs(20),
+    gap: rvs(16),
   },
   detailRow: {
     flexDirection: 'row',
@@ -164,10 +168,10 @@ const styles = StyleSheet.create({
   detailLabelGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: rs(8),
   },
   detailLabel: {
-    fontSize: 10,
+    fontSize: rms(10),
     fontWeight: '700',
     letterSpacing: 1,
   },
@@ -181,27 +185,27 @@ const styles = StyleSheet.create({
   },
   timeItem: {
     alignItems: 'center',
-    gap: 2,
+    gap: rvs(2),
   },
   timeLabel: {
-    fontSize: 9,
+    fontSize: rms(9),
     fontWeight: '700',
   },
   timeValue: {
-    fontSize: 14,
+    fontSize: rms(14),
     fontWeight: '900',
   },
   loader: {
-    marginTop: 40,
+    marginTop: rvs(40),
   },
   emptyCard: {
-    padding: 40,
+    padding: rs(40),
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
+    gap: rs(12),
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: rms(14),
     fontWeight: '600',
     textAlign: 'center',
   }

@@ -20,6 +20,7 @@ import { StatusBadge } from '../../components/StatusBadge';
 import { shadow } from '../../utils/styles';
 import { api } from '../../services/api';
 import { AppHeader } from '@/src/components/AppHeader';
+import { rs, rvs, rms } from '../../utils/responsive';
 
 // ─── Types matching your API exactly ────────────────────────────────────────
 
@@ -94,15 +95,11 @@ const formatRemainingTime = (checkInTime: string, minDurationHours: number = 6):
   const checkInDate = new Date(checkInTime).getTime();
   const expectedCheckOut = checkInDate + minDurationHours * 3600000;
   let remaining = expectedCheckOut - Date.now();
-
   if (remaining < 0) remaining = 0;
-
   const h = Math.floor(remaining / 3600000);
   const m = Math.floor((remaining % 3600000) / 60000);
   const s = Math.floor((remaining % 60000) / 1000);
-
   const pad = (num: number) => num.toString().padStart(2, '0');
-
   return `${pad(h)}:${pad(m)}:${pad(s)}`;
 };
 
@@ -122,7 +119,6 @@ export const HomeScreen: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [timer, setTimer] = useState('00:00:00');
-  // FIX: track whether user has tapped the map to enable map interaction
   const [mapInteractive, setMapInteractive] = useState(false);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -133,32 +129,22 @@ export const HomeScreen: React.FC = () => {
     if (todayAttendance?.checkInTime && !todayAttendance?.checkOutTime) {
       const minDuration = geofenceLocation?.workingHours?.minDurationHours ?? 6;
       setTimer(formatRemainingTime(todayAttendance.checkInTime, minDuration));
-
       timerRef.current = setInterval(() => {
         setTimer(formatRemainingTime(todayAttendance.checkInTime!, minDuration));
       }, 1000);
     }
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [todayAttendance?.checkInTime, todayAttendance?.checkOutTime, geofenceLocation]);
 
-  // ── Fetch geofence locations and pick the nearest one ────────────────────
+  // ── Fetch geofence locations ──────────────────────────────────────────────
   useEffect(() => {
     const fetchLocation = async () => {
       try {
         const res = await api.get<{ data: GeofenceLocation[] }>('/geofence/locations');
         const locations = res.data.data;
         if (locations.length === 0) return;
+        if (locations.length === 1) { setGeofenceLocation(locations[0]); return; }
 
-        if (locations.length === 1) {
-          setGeofenceLocation(locations[0]);
-          return;
-        }
-
-        // Wait until we have the user's GPS position, then pick the nearest location.
-        // getCurrentPosition is called here independently so the pick happens even
-        // if the main GPS useEffect hasn't resolved yet.
         const pickNearest = (lat: number, lng: number) => {
           let nearest = locations[0];
           let minDist = haversineDistance(lat, lng, locations[0].latitude, locations[0].longitude);
@@ -172,18 +158,16 @@ export const HomeScreen: React.FC = () => {
         if (Platform.OS === 'web') {
           navigator.geolocation.getCurrentPosition(
             (pos) => pickNearest(pos.coords.latitude, pos.coords.longitude),
-            () => setGeofenceLocation(locations[0]), // fallback to first if GPS denied
+            () => setGeofenceLocation(locations[0]),
             { enableHighAccuracy: true, timeout: 10000 }
           );
         } else {
           try {
             const ExpoLocation = await import('expo-location');
-            const pos = await ExpoLocation.getCurrentPositionAsync({
-              accuracy: ExpoLocation.Accuracy.High,
-            });
+            const pos = await ExpoLocation.getCurrentPositionAsync({ accuracy: ExpoLocation.Accuracy.High });
             pickNearest(pos.coords.latitude, pos.coords.longitude);
           } catch {
-            setGeofenceLocation(locations[0]); // fallback to first if GPS fails
+            setGeofenceLocation(locations[0]);
           }
         }
       } catch (err) {
@@ -204,9 +188,7 @@ export const HomeScreen: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    fetchToday();
-  }, []);
+  useEffect(() => { fetchToday(); }, []);
 
   // ── Get user's GPS location ───────────────────────────────────────────────
   useEffect(() => {
@@ -219,36 +201,20 @@ export const HomeScreen: React.FC = () => {
         }
         navigator.geolocation.getCurrentPosition(
           (pos) => {
-            setUserLocation({
-              latitude: pos.coords.latitude,
-              longitude: pos.coords.longitude,
-              accuracy: pos.coords.accuracy,
-            });
+            setUserLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracy: pos.coords.accuracy });
             setLocationError(null);
             setIsLoading(false);
           },
-          (err) => {
-            setLocationError('Location access denied');
-            setIsLoading(false);
-          },
+          () => { setLocationError('Location access denied'); setIsLoading(false); },
           { enableHighAccuracy: true, timeout: 10000 }
         );
-
-        // Poll every 10s on web
         locationRef.current = setInterval(() => {
           navigator.geolocation.getCurrentPosition(
-            (pos) => {
-              setUserLocation({
-                latitude: pos.coords.latitude,
-                longitude: pos.coords.longitude,
-                accuracy: pos.coords.accuracy,
-              });
-            },
+            (pos) => setUserLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracy: pos.coords.accuracy }),
             () => { }
           );
         }, 10000);
       } else {
-        // Native — use expo-location
         const ExpoLocation = await import('expo-location');
         const { status } = await ExpoLocation.requestForegroundPermissionsAsync();
         if (status !== 'granted') {
@@ -256,31 +222,19 @@ export const HomeScreen: React.FC = () => {
           setIsLoading(false);
           return;
         }
-        const pos = await ExpoLocation.getCurrentPositionAsync({
-          accuracy: ExpoLocation.Accuracy.High,
-        });
-        setUserLocation({
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-          accuracy: pos.coords.accuracy,
-        });
+        const pos = await ExpoLocation.getCurrentPositionAsync({ accuracy: ExpoLocation.Accuracy.High });
+        setUserLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracy: pos.coords.accuracy });
         setIsLoading(false);
       }
     };
-
     startTracking();
-    return () => {
-      if (locationRef.current) clearInterval(locationRef.current);
-    };
+    return () => { if (locationRef.current) clearInterval(locationRef.current); };
   }, []);
 
-  // ── Compute geofence distance client-side (UX only) ───────────────────────
+  // ── Compute geofence distance ─────────────────────────────────────────────
   useEffect(() => {
     if (userLocation && geofenceLocation) {
-      const d = haversineDistance(
-        userLocation.latitude, userLocation.longitude,
-        geofenceLocation.latitude, geofenceLocation.longitude
-      );
+      const d = haversineDistance(userLocation.latitude, userLocation.longitude, geofenceLocation.latitude, geofenceLocation.longitude);
       setDistanceM(d);
       setIsWithinGeofence(d <= geofenceLocation.radiusMeters);
     }
@@ -297,7 +251,6 @@ export const HomeScreen: React.FC = () => {
   // ── Check-in / Check-out ──────────────────────────────────────────────────
   const handleAction = async (retryCount = 0) => {
     if (!userLocation || !geofenceLocation) return;
-
     const status = getStatus();
     if (status !== 'available' && status !== 'checked-in') return;
 
@@ -310,34 +263,23 @@ export const HomeScreen: React.FC = () => {
         locationId: geofenceLocation.id,
         accuracyMeters: userLocation.accuracy ?? 10,
       };
-
       if (status === 'available') {
-        const res = await api.post<{ message: string; attendance: TodayAttendance }>(
-          '/attendance/checkin',
-          payload
-        );
+        const res = await api.post<{ message: string; attendance: TodayAttendance }>('/attendance/checkin', payload);
         setTodayAttendance(res.data.attendance);
       } else {
-        const res = await api.post<{ message: string; attendance: TodayAttendance }>(
-          '/attendance/checkout',
-          payload
-        );
+        const res = await api.post<{ message: string; attendance: TodayAttendance }>('/attendance/checkout', payload);
         setTodayAttendance(res.data.attendance);
       }
     } catch (err: any) {
       const code = err.response?.status;
       const errorStr = err.response?.data?.error;
       const messageStr = err.response?.data?.message;
-
       if (code === 403) {
         Alert.alert('Access Denied', 'You do not have permission to perform this action.');
       } else if (code === 400 && errorStr === 'OUTSIDE_GEOFENCE') {
         Alert.alert('Outside Geofence', `You are ${distanceM ? distanceM.toFixed(0) : '?'}m away from the zone.`);
       } else if (code === 400 && errorStr === 'STALE_TIMESTAMP') {
-        if (retryCount < 2) {
-          handleAction(retryCount + 1);
-          return;
-        }
+        if (retryCount < 2) { handleAction(retryCount + 1); return; }
         Alert.alert('Error', 'Timestamp stale after retries.');
       } else if (code === 400 && errorStr === 'LOW_GPS_ACCURACY') {
         Alert.alert('Low GPS Accuracy', 'Please move to an open area and try again.');
@@ -351,14 +293,6 @@ export const HomeScreen: React.FC = () => {
     } finally {
       setIsProcessing(false);
     }
-  };
-
-  // ── Map region ─────────────────────────────────────────────────────────────
-  const mapRegion = {
-    latitude: geofenceLocation?.latitude ?? userLocation?.latitude ?? -6.2088,
-    longitude: geofenceLocation?.longitude ?? userLocation?.longitude ?? 106.8456,
-    latitudeDelta: 0.003,
-    longitudeDelta: 0.003,
   };
 
   // ── Duration display ───────────────────────────────────────────────────────
@@ -376,17 +310,12 @@ export const HomeScreen: React.FC = () => {
   })();
 
   return (
-    <View style={[styles.container, styles.content, { backgroundColor: themeColors.background }]}> 
+    <View style={[styles.container, styles.content, { backgroundColor: themeColors.background }]}>
       <AppHeader />
 
       {/* ── Map Section ───────────────────────────────────────────────────── */}
       <View style={styles.mapWrapper}>
-        <View
-          style={[
-            styles.mapContainer,
-            { backgroundColor: themeColors.surface },
-          ]}
-        >
+        <View style={[styles.mapContainer, { backgroundColor: themeColors.surface }]}>
           {isLoading ? (
             <View style={styles.mapPlaceholder}>
               <ActivityIndicator color={themeColors.primary} size="large" />
@@ -405,47 +334,32 @@ export const HomeScreen: React.FC = () => {
             </View>
           )}
 
-          {/* Distance tag */}
           {!isLoading && (
             <View style={[styles.locationTag, { backgroundColor: themeColors.background + 'EE' }]}>
-              <Icon name="map-marker-radius" size={16} color={isWithinGeofence ? '#48BB78' : '#ECC94B'} />
-              <Text
-                style={[
-                  styles.locationTagText,
-                  { color: isWithinGeofence ? '#48BB78' : '#D69E2E' },
-                ]}
-              >
-                {distanceM != null
-                  ? `${distanceM.toFixed(0)}m from zone`
-                  : geofenceLocation?.name ?? 'Locating...'}
+              <Icon name="map-marker-radius" size={rs(16)} color={isWithinGeofence ? '#48BB78' : '#ECC94B'} />
+              <Text style={[styles.locationTagText, { color: isWithinGeofence ? '#48BB78' : '#D69E2E' }]}>
+                {distanceM != null ? `${distanceM.toFixed(0)}m from zone` : geofenceLocation?.name ?? 'Locating...'}
               </Text>
             </View>
           )}
 
           {!isLoading && !mapInteractive && (
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={styles.mapHint}
-              onPress={() => setMapInteractive(true)}
-            >
-              <Icon name="gesture-tap" size={14} color="#fff" />
+            <TouchableOpacity activeOpacity={0.8} style={styles.mapHint} onPress={() => setMapInteractive(true)}>
+              <Icon name="gesture-tap" size={rs(14)} color="#fff" />
               <Text style={styles.mapHintText}>Interact</Text>
             </TouchableOpacity>
           )}
 
           {!isLoading && mapInteractive && (
-            <TouchableOpacity
-              style={styles.mapDismiss}
-              onPress={() => setMapInteractive(false)}
-            >
-              <Icon name="close-circle" size={18} color="#fff" />
+            <TouchableOpacity style={styles.mapDismiss} onPress={() => setMapInteractive(false)}>
+              <Icon name="close-circle" size={rs(18)} color="#fff" />
               <Text style={styles.mapDismissText}>Done</Text>
             </TouchableOpacity>
           )}
 
           {locationError && (
             <View style={styles.errorBanner}>
-              <Icon name="alert-circle" size={14} color="#C53030" />
+              <Icon name="alert-circle" size={rs(14)} color="#C53030" />
               <Text style={styles.errorText}>{locationError}</Text>
             </View>
           )}
@@ -454,11 +368,7 @@ export const HomeScreen: React.FC = () => {
 
       {/* ── Check-in Button ───────────────────────────────────────────────── */}
       <View style={styles.buttonSection}>
-        <CheckInButton
-          status={getStatus()}
-          onPress={handleAction}
-          isLoading={isProcessing}
-        />
+        <CheckInButton status={getStatus()} onPress={handleAction} isLoading={isProcessing} />
       </View>
 
       {/* ── Stats Row ─────────────────────────────────────────────────────── */}
@@ -472,10 +382,7 @@ export const HomeScreen: React.FC = () => {
           <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>CHECK-IN</Text>
           <Text style={[styles.statValue, { color: themeColors.text }]}>
             {todayAttendance?.checkInTime
-              ? new Date(todayAttendance.checkInTime).toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit',
-              })
+              ? new Date(todayAttendance.checkInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
               : '--:--'}
           </Text>
         </NeumorphicCard>
@@ -486,10 +393,14 @@ export const HomeScreen: React.FC = () => {
         </NeumorphicCard>
       </View>
 
-      {/* ── Punctuality badge (shows after check-in) ──────────────────────── */}
+      {/* ── Punctuality badge ──────────────────────────────────────────────── */}
       {todayAttendance?.punctuality && (
         <NeumorphicCard style={styles.punctualityCard}>
-          <Icon name={todayAttendance.punctuality === 'ON_TIME' ? 'check-circle' : 'clock-alert'} size={20} color={todayAttendance.punctuality === 'ON_TIME' ? '#48BB78' : '#ECC94B'} />
+          <Icon
+            name={todayAttendance.punctuality === 'ON_TIME' ? 'check-circle' : 'clock-alert'}
+            size={rs(20)}
+            color={todayAttendance.punctuality === 'ON_TIME' ? '#48BB78' : '#ECC94B'}
+          />
           <Text style={[styles.punctualityText, { color: themeColors.text }]}>
             {todayAttendance.punctuality === 'ON_TIME' ? 'On Time' : 'Marked Late'}
           </Text>
@@ -501,106 +412,98 @@ export const HomeScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { padding: 24, paddingTop: 0, gap: 12 },
-  mapWrapper: {
-    alignItems: 'center',
-  },
-
+  content: { padding: rs(24), paddingTop: 0, gap: rs(12) },
+  mapWrapper: { alignItems: 'center' },
   mapContainer: {
     width: '88%',
-    height: 250,
-    borderRadius: 28,
-    padding: 8,
+    height: rvs(300),
+    borderRadius: rs(28),
+    padding: rs(8),
     overflow: 'hidden',
-
     shadowColor: '#000',
     shadowOffset: { width: 6, height: 6 },
     shadowOpacity: 0.15,
     shadowRadius: 10,
     elevation: 8,
   },
-  map: { flex: 1, borderRadius: 24 },
+  map: { flex: 1, borderRadius: rs(24) },
   mapPlaceholder: {
     flex: 1,
-    borderRadius: 24,
+    borderRadius: rs(24),
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
+    gap: rs(12),
   },
-  loadingText: { fontSize: 13, fontWeight: '600' },
-
+  loadingText: { fontSize: rms(13), fontWeight: '600' },
   mapHint: {
     position: 'absolute',
-    bottom: 16,
-    right: 16,
+    bottom: rs(16),
+    right: rs(16),
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: rs(4),
     backgroundColor: 'rgba(0,0,0,0.45)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
+    paddingHorizontal: rs(10),
+    paddingVertical: rvs(5),
+    borderRadius: rs(12),
   },
-  mapHintText: { fontSize: 11, fontWeight: '600', color: '#fff' },
-
-  // Dismiss button shown when map is interactive
+  mapHintText: { fontSize: rms(11), fontWeight: '600', color: '#fff' },
   mapDismiss: {
     position: 'absolute',
-    bottom: 16,
-    right: 16,
+    bottom: rs(16),
+    right: rs(16),
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: rs(4),
     backgroundColor: 'rgba(0,0,0,0.55)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
+    paddingHorizontal: rs(10),
+    paddingVertical: rvs(5),
+    borderRadius: rs(12),
   },
-  mapDismissText: { fontSize: 11, fontWeight: '700', color: '#fff' },
-
+  mapDismissText: { fontSize: rms(11), fontWeight: '700', color: '#fff' },
   locationTag: {
     position: 'absolute',
-    top: 24,
-    left: 24,
+    top: rs(24),
+    left: rs(24),
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 6,
+    paddingHorizontal: rs(12),
+    paddingVertical: rvs(8),
+    borderRadius: rs(20),
+    gap: rs(6),
   },
-  locationTagText: { fontSize: 12, fontWeight: '700' },
+  locationTagText: { fontSize: rms(12), fontWeight: '700' },
   errorBanner: {
     position: 'absolute',
-    bottom: 24,
-    left: 24,
-    right: 24,
+    bottom: rs(24),
+    left: rs(24),
+    right: rs(24),
     backgroundColor: '#FED7D7',
-    padding: 12,
-    borderRadius: 12,
+    padding: rs(12),
+    borderRadius: rs(12),
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: rs(8),
   },
-  errorText: { fontSize: 10, fontWeight: '700', color: '#9B2C2C', flex: 1 },
+  errorText: { fontSize: rms(10), fontWeight: '700', color: '#9B2C2C', flex: 1 },
   buttonSection: { alignItems: 'center' },
-  statsGrid: { flexDirection: 'row', gap: 8 },
+  statsGrid: { flexDirection: 'row', gap: rs(8) },
   statCard: {
     flex: 1,
-    height: 70,
+    height: rvs(70),
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    padding: 8,
+    gap: rvs(4),
+    padding: rs(8),
   },
-  statLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 1 },
-  statValue: { fontSize: 14, fontWeight: '900' },
+  statLabel: { fontSize: rms(10), fontWeight: '700', letterSpacing: 1 },
+  statValue: { fontSize: rms(14), fontWeight: '900' },
   punctualityCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 14,
+    gap: rs(8),
+    paddingVertical: rvs(14),
   },
-  punctualityText: { fontSize: 14, fontWeight: '700' },
+  punctualityText: { fontSize: rms(14), fontWeight: '700' },
 });

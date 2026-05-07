@@ -21,6 +21,7 @@ import { colors } from '../../theme/colors';
 import { NeumorphicCard } from '../../components/NeumorphicCard';
 import { api } from '../../services/api';
 import { shadow } from '../../utils/styles';
+import { rs, rms, rvs, wp } from '../../utils/responsive'; // ← responsive helpers
 
 const getDeviceId = async (): Promise<string> => {
   if (Platform.OS === 'android') {
@@ -28,7 +29,6 @@ const getDeviceId = async (): Promise<string> => {
   } else if (Platform.OS === 'ios') {
     return await Application.getIosIdForVendorAsync() ?? 'unknown-ios';
   } else {
-    // Web fallback — generate/persist a UUID
     let id = localStorage.getItem('deviceId');
     if (!id) {
       id = crypto.randomUUID();
@@ -77,7 +77,7 @@ export const LoginScreen: React.FC = () => {
         {/* HEADER */}
         <View style={styles.header}>
           <NeumorphicCard style={styles.logoContainer}>
-            <Icon name="fingerprint" size={48} color={themeColors.primary} />
+            <Icon name="fingerprint" size={rs(48)} color={themeColors.primary} />
           </NeumorphicCard>
           <Text style={[styles.title, { color: themeColors.text }]}>InDaZone</Text>
           <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>
@@ -94,7 +94,7 @@ export const LoginScreen: React.FC = () => {
               EMAIL ADDRESS
             </Text>
             <View style={[styles.inputWrapper, { backgroundColor: themeColors.surface }]}>
-              <Icon name="email-outline" size={20} color={themeColors.outline} style={styles.inputIcon} />
+              <Icon name="email-outline" size={rs(20)} color={themeColors.outline} style={styles.inputIcon} />
               <TextInput
                 style={[styles.input, { color: themeColors.text }]}
                 placeholder="student@university.edu"
@@ -121,7 +121,7 @@ export const LoginScreen: React.FC = () => {
             </View>
 
             <View style={[styles.inputWrapper, { backgroundColor: themeColors.surface }]}>
-              <Icon name="lock-outline" size={20} color={themeColors.outline} style={styles.inputIcon} />
+              <Icon name="lock-outline" size={rs(20)} color={themeColors.outline} style={styles.inputIcon} />
               <TextInput
                 style={[styles.input, { color: themeColors.text }]}
                 placeholder="••••••••"
@@ -131,7 +131,7 @@ export const LoginScreen: React.FC = () => {
                 secureTextEntry={!showPassword}
               />
               <Pressable onPress={() => setShowPassword(!showPassword)}>
-                <Icon name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={themeColors.outline} />
+                <Icon name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={rs(20)} color={themeColors.outline} />
               </Pressable>
             </View>
           </View>
@@ -150,7 +150,7 @@ export const LoginScreen: React.FC = () => {
             ) : (
               <>
                 <Text style={styles.loginButtonText}>Sign In to Dashboard</Text>
-                <Icon name="arrow-right" size={20} color="#FFF" />
+                <Icon name="arrow-right" size={rs(20)} color="#FFF" />
               </>
             )}
           </Pressable>
@@ -166,75 +166,75 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: {
     flexGrow: 1,
-    padding: 24,
+    padding: rs(24),
     justifyContent: 'center',
   },
   header: {
     alignItems: 'center',
-    marginBottom: 48,
+    marginBottom: rvs(48),
   },
   logoContainer: {
-    width: 96,
-    height: 96,
-    borderRadius: 32,
+    width: rs(96),
+    height: rs(96),
+    borderRadius: rs(32),
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: rvs(16),
   },
   title: {
-    fontSize: 42,
+    fontSize: rms(42),
     fontWeight: '900',
     letterSpacing: -1,
   },
   subtitle: {
-    fontSize: 12,
+    fontSize: rms(12),
     fontWeight: '700',
     letterSpacing: 2,
-    marginTop: 4,
+    marginTop: rvs(4),
   },
-  form: { gap: 24 },
-  inputGroup: { gap: 8 },
+  form: { gap: rvs(24) },
+  inputGroup: { gap: rvs(8) },
   labelRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 4,
+    paddingHorizontal: rs(4),
   },
   label: {
-    fontSize: 10,
+    fontSize: rms(10),
     fontWeight: '700',
     letterSpacing: 1,
   },
   forgotText: {
-    fontSize: 10,
+    fontSize: rms(10),
     fontWeight: '700',
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    height: 56,
+    borderRadius: rs(20),
+    paddingHorizontal: rs(16),
+    height: rvs(56),
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.05)',
   },
-  inputIcon: { marginRight: 12 },
+  inputIcon: { marginRight: rs(12) },
   input: {
     flex: 1,
-    fontSize: 14,
+    fontSize: rms(14),
     fontWeight: '500',
   },
   loginButton: {
     backgroundColor: '#48BB78',
-    height: 60,
-    borderRadius: 30,
+    height: rvs(60),
+    borderRadius: rs(30),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
+    gap: rs(12),
   },
   loginButtonText: {
     color: '#FFF',
-    fontSize: 16,
+    fontSize: rms(16),
     fontWeight: '700',
     letterSpacing: 0.5,
   },

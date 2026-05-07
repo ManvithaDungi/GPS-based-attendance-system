@@ -9,6 +9,7 @@ import Icon from './Icon';
 import { useTheme } from '../context/ThemeContext';
 import { colors } from '../theme/colors';
 import { shadow } from '../utils/styles';
+import { rs, rvs, rms } from '../utils/responsive';
 
 interface CheckInButtonProps {
   status: 'outside' | 'available' | 'checked-in' | 'completed';
@@ -23,33 +24,13 @@ export const CheckInButton: React.FC<CheckInButtonProps> = ({ status, onPress, i
   const getConfig = () => {
     switch (status) {
       case 'outside':
-        return {
-          color: '#A0AEC0',
-          text: 'OUTSIDE ZONE',
-          disabled: true,
-          icon: 'map-marker-off-outline'
-        };
+        return { color: '#A0AEC0', text: 'OUTSIDE ZONE', disabled: true, icon: 'map-marker-off-outline' };
       case 'available':
-        return {
-          color: '#48BB78',
-          text: 'CHECK IN',
-          disabled: false,
-          icon: 'login-variant'
-        };
+        return { color: '#48BB78', text: 'CHECK IN', disabled: false, icon: 'login-variant' };
       case 'checked-in':
-        return {
-          color: '#ECC94B',
-          text: 'CHECK OUT',
-          disabled: false,
-          icon: 'logout-variant'
-        };
+        return { color: '#ECC94B', text: 'CHECK OUT', disabled: false, icon: 'logout-variant' };
       case 'completed':
-        return {
-          color: '#A0AEC0',
-          text: 'DONE',
-          disabled: true,
-          icon: 'check-circle-outline'
-        };
+        return { color: '#A0AEC0', text: 'DONE', disabled: true, icon: 'check-circle-outline' };
     }
   };
 
@@ -63,7 +44,7 @@ export const CheckInButton: React.FC<CheckInButtonProps> = ({ status, onPress, i
         disabled={config.disabled || isLoading}
         style={[
           styles.button,
-          { 
+          {
             backgroundColor: themeColors.surface,
             ...shadow(themeColors.shadowDark, { x: 10, y: 10 }, 0.5, 20, 10)
           }
@@ -74,16 +55,16 @@ export const CheckInButton: React.FC<CheckInButtonProps> = ({ status, onPress, i
         ) : (
           <View style={styles.content}>
             <View style={[styles.iconContainer, { backgroundColor: config.color + '15' }]}>
-              <Icon name={config.icon as any} size={32} color={config.color} />
+              <Icon name={config.icon as any} size={rs(32)} color={config.color} />
             </View>
-            <Text style={[styles.buttonText, { color: config.color }]}> 
+            <Text style={[styles.buttonText, { color: config.color }]}>
               {config.text}
             </Text>
           </View>
         )}
       </TouchableOpacity>
-      
-      <Text style={[styles.statusHint, { color: themeColors.textSecondary }]}> 
+
+      <Text style={[styles.statusHint, { color: themeColors.textSecondary }]}>
         {status === 'outside' ? 'Not in Zone' : 'Inside designated attendance zone'}
       </Text>
     </View>
@@ -93,35 +74,34 @@ export const CheckInButton: React.FC<CheckInButtonProps> = ({ status, onPress, i
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    gap: 16,
+    gap: rvs(16),
   },
   button: {
-    width: 130,
-    height: 130,
-    borderRadius: 65,
+    width: rs(130),
+    height: rs(130),
+    borderRadius: rs(65),
     justifyContent: 'center',
     alignItems: 'center',
-    // shadow handled dynamically in render
   },
   content: {
     alignItems: 'center',
     justifyContent: 'center',
   },
   iconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: rs(60),
+    height: rs(60),
+    borderRadius: rs(30),
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: rvs(8),
   },
   buttonText: {
-    fontSize: 12,
+    fontSize: rms(12),
     fontWeight: '900',
     letterSpacing: -0.5,
   },
   statusHint: {
-    fontSize: 13,
+    fontSize: rms(13),
     fontWeight: '600',
   }
 });

@@ -4,11 +4,11 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
   ActivityIndicator,
   TouchableOpacity
 } from 'react-native';
@@ -19,6 +19,7 @@ import { NeumorphicCard } from '../../components/NeumorphicCard';
 import { StatusBadge } from '../../components/StatusBadge';
 import { api } from '../../services/api';
 import { AttendanceCalendar } from '../../components/AttendanceCalendar';
+import { rs, rvs, rms } from '../../utils/responsive';
 
 export const AttendanceScreen: React.FC = () => {
   const { theme } = useTheme();
@@ -42,11 +43,9 @@ export const AttendanceScreen: React.FC = () => {
         api.get('/attendance/summary')
       ]);
 
-      // Normalize history data
       const data = historyRes.data.data || historyRes.data || [];
       setHistory(data);
 
-      // 🔧 Normalize stats — handle different backend field names
       const raw = statsRes.data?.data || statsRes.data || {};
       const normalizedStats = {
         presentDays: raw.presentDays ?? raw.present_days ?? raw.totalPresent ?? 0,
@@ -85,21 +84,20 @@ export const AttendanceScreen: React.FC = () => {
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: themeColors.background }]} contentContainerStyle={styles.content}>
-      
+
       {/* HEADER WITH TOGGLE */}
       <View style={styles.header}>
-        {/* ✅ FIX: dynamic title */}
         <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
           {viewMode === 'list' ? 'Daily Attendance' : 'Attendance Calendar'}
         </Text>
 
         <View style={styles.toggle}>
           <TouchableOpacity onPress={() => setViewMode('list')}>
-            <Icon name="format-list-bulleted" size={22} color={viewMode === 'list' ? '#4F8EF7' : themeColors.textSecondary} />
+            <Icon name="format-list-bulleted" size={rs(22)} color={viewMode === 'list' ? '#4F8EF7' : themeColors.textSecondary} />
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => setViewMode('calendar')}>
-            <Icon name="calendar-month" size={22} color={viewMode === 'calendar' ? '#4F8EF7' : themeColors.textSecondary} />
+            <Icon name="calendar-month" size={rs(22)} color={viewMode === 'calendar' ? '#4F8EF7' : themeColors.textSecondary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -165,29 +163,27 @@ export const AttendanceScreen: React.FC = () => {
       {/* CALENDAR VIEW */}
       {viewMode === 'calendar' && (
         <>
-          {/* ✅ CALENDAR COMPONENT */}
           <AttendanceCalendar
             history={history}
             themeColors={themeColors}
             onSelectDate={(data) => setSelectedDate(data)}
           />
 
-          {/* ✅ SELECTED DAY DETAILS */}
           {selectedDate && (
             <NeumorphicCard style={styles.detailCard}>
-              <Text style={{ fontWeight: '800' }}>
+              <Text style={{ fontWeight: '800', fontSize: rms(14) }}>
                 {new Date(selectedDate.date).toDateString()}
               </Text>
 
-              <Text>
+              <Text style={{ fontSize: rms(13) }}>
                 Check-in: {selectedDate.checkInTime ? new Date(selectedDate.checkInTime).toLocaleTimeString() : '--'}
               </Text>
 
-              <Text>
+              <Text style={{ fontSize: rms(13) }}>
                 Check-out: {selectedDate.checkOutTime ? new Date(selectedDate.checkOutTime).toLocaleTimeString() : '--'}
               </Text>
 
-              <Text>
+              <Text style={{ fontSize: rms(13) }}>
                 Duration: {formatDuration(selectedDate.durationHours)}
               </Text>
 
@@ -203,7 +199,7 @@ export const AttendanceScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   centered: { justifyContent: 'center', alignItems: 'center' },
-  content: { padding: 24, gap: 20 },
+  content: { padding: rs(24), gap: rs(20) },
 
   header: {
     flexDirection: 'row',
@@ -213,31 +209,31 @@ const styles = StyleSheet.create({
 
   toggle: {
     flexDirection: 'row',
-    gap: 16,
+    gap: rs(16),
   },
 
-  statsGrid: { flexDirection: 'row', gap: 12 },
+  statsGrid: { flexDirection: 'row', gap: rs(12) },
 
   statCard: {
     flex: 1,
-    height: 100,
+    height: rvs(100),
     justifyContent: 'center',
     alignItems: 'center',
   },
 
-  statValue: { fontSize: 24, fontWeight: '900' },
-  statLabel: { fontSize: 10 },
+  statValue: { fontSize: rms(24), fontWeight: '900' },
+  statLabel: { fontSize: rms(10) },
 
-  sectionTitle: { fontSize: 18, fontWeight: '900' },
+  sectionTitle: { fontSize: rms(18), fontWeight: '900' },
 
-  historyCard: { padding: 16, gap: 10 },
+  historyCard: { padding: rs(16), gap: rvs(10) },
 
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
 
-  dateText: { fontWeight: '800' },
+  dateText: { fontWeight: '800', fontSize: rms(14) },
 
   divider: { height: 1, backgroundColor: '#eee' },
 
@@ -247,7 +243,7 @@ const styles = StyleSheet.create({
   },
 
   detailCard: {
-    padding: 16,
-    gap: 8,
+    padding: rs(16),
+    gap: rvs(8),
   },
 });

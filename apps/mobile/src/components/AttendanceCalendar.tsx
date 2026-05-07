@@ -4,8 +4,16 @@
  */
 
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { NeumorphicCard } from './NeumorphicCard';
+import { rs, rvs, rms } from '../utils/responsive';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const CARD_PADDING = rs(16) * 2;     // padding on both sides inside the card
+const COLUMNS = 7;
+const GAP = rs(8);
+const DAY_WIDTH = Math.floor((SCREEN_WIDTH - CARD_PADDING - rs(48) - GAP * (COLUMNS - 1)) / COLUMNS);
+// rs(48) accounts for outer screen padding (24 each side from AttendanceScreen)
 
 interface Props {
    history: any[];
@@ -41,6 +49,7 @@ export const AttendanceCalendar: React.FC<Props> = ({
    };
 
    const daysInMonth = new Date(year, month + 1, 0).getDate();
+   const firstDayOfWeek = new Date(year, month, 1).getDay(); // 0=Sun
 
    const getDayData = (day: number) => {
       return history.find(item => {
@@ -67,17 +76,29 @@ export const AttendanceCalendar: React.FC<Props> = ({
             </TouchableOpacity>
          </View>
 
+         {/* Weekday header row */}
+         <View style={styles.weekRow}>
+            {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => (
+               <Text key={d} style={[styles.weekDay, { color: themeColors.textSecondary, width: DAY_WIDTH }]}>{d}</Text>
+            ))}
+         </View>
+
          <View style={styles.grid}>
+            {/* Empty cells to offset first day */}
+            {Array.from({ length: firstDayOfWeek }, (_, i) => (
+               <View key={`empty-${i}`} style={{ width: DAY_WIDTH, marginBottom: rvs(10) }} />
+            ))}
+
             {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(day => {
                const data = getDayData(day);
 
                return (
                   <TouchableOpacity
                      key={day}
-                     style={styles.day}
+                     style={[styles.day, { width: DAY_WIDTH }]}
                      onPress={() => data && onSelectDate(data)}
                   >
-                     <Text style={{ color: themeColors.text }}>{day}</Text>
+                     <Text style={{ color: themeColors.text, fontSize: rms(13) }}>{day}</Text>
 
                      {data && (
                         <View
@@ -97,36 +118,44 @@ export const AttendanceCalendar: React.FC<Props> = ({
 
 const styles = StyleSheet.create({
    calendar: {
-      padding: 16,
+      padding: rs(16),
    },
    header: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: 12,
+      marginBottom: rvs(8),
    },
    monthLabel: {
-      fontSize: 16,
+      fontSize: rms(16),
       fontWeight: '600',
    },
    arrow: {
-      fontSize: 24,
-      paddingHorizontal: 8,
+      fontSize: rms(24),
+      paddingHorizontal: rs(8),
+   },
+   weekRow: {
+      flexDirection: 'row',
+      marginBottom: rvs(6),
+   },
+   weekDay: {
+      textAlign: 'center',
+      fontSize: rms(10),
+      fontWeight: '700',
    },
    grid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: 10,
+      gap: GAP,
    },
    day: {
-      width: '13%',
       alignItems: 'center',
-      marginBottom: 10,
+      marginBottom: rvs(6),
    },
    dot: {
-      width: 6,
-      height: 6,
-      borderRadius: 3,
-      marginTop: 4,
+      width: rs(6),
+      height: rs(6),
+      borderRadius: rs(3),
+      marginTop: rvs(3),
    },
 });

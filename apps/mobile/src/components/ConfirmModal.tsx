@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Modal } from "react-native";
 import { useTheme } from "../context/ThemeContext";
 import { colors } from "../theme/colors";
 import { NeumorphicCard, NeumorphicButton } from "./NeumorphicCard";
+import { rs, rvs, rms } from "../utils/responsive";
 
 interface Props {
    visible: boolean;
@@ -53,34 +54,34 @@ const styles = StyleSheet.create({
       backgroundColor: "rgba(0,0,0,0.4)",
       justifyContent: "center",
       alignItems: "center",
-      padding: 24,
+      padding: rs(24),
    },
    modal: {
       width: "100%",
-      padding: 20,
-      gap: 20,
-      borderRadius: 20,
+      padding: rs(20),
+      gap: rvs(20),
+      borderRadius: rs(20),
    },
    text: {
-      fontSize: 16,
+      fontSize: rms(16),
       fontWeight: "700",
       textAlign: "center",
    },
    actions: {
       flexDirection: "row",
       justifyContent: "space-between",
-      gap: 12,
+      gap: rs(12),
    },
    btn: {
       flex: 1,
-      height: 50,
+      height: rvs(50),
    },
    cancelText: {
-      fontSize: 14,
+      fontSize: rms(14),
       fontWeight: "700",
    },
    confirmText: {
-      fontSize: 14,
+      fontSize: rms(14),
       fontWeight: "800",
    },
 });

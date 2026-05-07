@@ -9,12 +9,12 @@ type IconProps = {
 };
 
 const NAME_MAP: Record<string, string> = {
-  // Map commonly-used MaterialCommunityIcons names to lucide-react component names
+  // ── existing mappings ──────────────────────────────────────────────────────
   'map-marker-radius': 'MapPin',
   'map-marker-off-outline': 'MapPinOff',
   'map-marker-off': 'MapPinOff',
   'map-marker': 'MapPin',
-  'gesture-tap': 'Tap',
+  'gesture-tap': 'MousePointerClick',
   'close-circle': 'XCircle',
   'close-circle-outline': 'XCircle',
   'alert-circle': 'AlertCircle',
@@ -30,6 +30,34 @@ const NAME_MAP: Record<string, string> = {
   'alert-outline': 'AlertTriangle',
   'bell-off-outline': 'BellOff',
   'bell-outline': 'Bell',
+
+  // ── NEW: AppHeader — theme toggle ──────────────────────────────────────────
+  'weather-night': 'Moon',
+  'white-balance-sunny': 'Sun',
+  'moon-waning-crescent': 'Moon',
+
+  // ── NEW: LoginScreen ──────────────────────────────────────────────────────
+  'fingerprint': 'Fingerprint',
+  'email-outline': 'Mail',
+  'lock-outline': 'Lock',
+  'eye-outline': 'Eye',
+  'eye-off-outline': 'EyeOff',
+  'arrow-right': 'ArrowRight',
+
+  // ── NEW: MainLayout bottom tabs ───────────────────────────────────────────
+  'home': 'Home',
+  'calendar-check': 'CalendarCheck',
+  'bell': 'Bell',
+  'account-circle': 'CircleUser',
+
+  // ── NEW: AttendanceScreen ─────────────────────────────────────────────────
+  'calendar-blank': 'CalendarDays',
+
+  // ── NEW: ProfileScreen ────────────────────────────────────────────────────
+  'logout': 'LogOut',
+  'toggle-switch': 'ToggleRight',
+  'toggle-switch-off': 'ToggleLeft',
+  'help-circle-outline': 'HelpCircle',
 };
 
 function toPascal(name: string) {

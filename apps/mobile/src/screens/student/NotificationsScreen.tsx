@@ -17,6 +17,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { colors } from '../../theme/colors';
 import { NeumorphicCard, NeumorphicButton } from '../../components/NeumorphicCard';
 import { api } from '../../services/api';
+import { rs, rvs, rms } from '../../utils/responsive';
 
 interface Notification {
   id: string;
@@ -37,10 +38,7 @@ export const NotificationsScreen: React.FC = () => {
 
   useEffect(() => {
     fetchNotifications();
-
-    // ✅ FIX: auto refresh every 5 seconds
     const interval = setInterval(fetchNotifications, 5000);
-
     return () => clearInterval(interval);
   }, []);
 
@@ -48,15 +46,10 @@ export const NotificationsScreen: React.FC = () => {
     try {
       setError(null);
       const response = await api.get('/notifications');
-
       const data = response.data.data || [];
-
       setNotifications(data);
-
-      // ✅ FIX: update unread count
       const unread = data.filter((n: Notification) => !n.read).length;
       setUnreadCount(unread);
-
     } catch (e) {
       console.error('Failed to fetch notifications', e);
       setError('Failed to load notifications. Please try again.');
@@ -68,13 +61,8 @@ export const NotificationsScreen: React.FC = () => {
   const markAsRead = async (id: string) => {
     try {
       await api.patch(`/notifications/${id}/read`);
-
-      setNotifications(prev =>
-        prev.map(n => n.id === id ? { ...n, read: true } : n)
-      );
-
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
       setUnreadCount(prev => Math.max(prev - 1, 0));
-
     } catch (e) {
       console.error('Failed to mark read', e);
     }
@@ -84,12 +72,9 @@ export const NotificationsScreen: React.FC = () => {
     try {
       const unreadIds = notifications.filter(n => !n.read).map(n => n.id);
       if (unreadIds.length === 0) return;
-
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
       setUnreadCount(0);
-
       await Promise.all(unreadIds.map(id => api.patch(`/notifications/${id}/read`)));
-
     } catch (e) {
       console.error('Failed to mark all as read', e);
     }
@@ -106,9 +91,9 @@ export const NotificationsScreen: React.FC = () => {
   if (error) {
     return (
       <View style={[styles.container, styles.centered, { backgroundColor: themeColors.background }]}>
-        <Icon name="alert-circle-outline" size={64} color={colors.light.error} />
-        <Text style={[styles.emptyText, { color: themeColors.text, marginTop: 16 }]}>{error}</Text>
-        <TouchableOpacity style={{ marginTop: 24 }} onPress={() => { setIsLoading(true); fetchNotifications(); }}>
+        <Icon name="alert-circle-outline" size={rs(64)} color={colors.light.error} />
+        <Text style={[styles.emptyText, { color: themeColors.text, marginTop: rvs(16) }]}>{error}</Text>
+        <TouchableOpacity style={{ marginTop: rvs(24) }} onPress={() => { setIsLoading(true); fetchNotifications(); }}>
           <Text style={[styles.actionText, { color: colors.light.success }]}>Try Again</Text>
         </TouchableOpacity>
       </View>
@@ -121,14 +106,12 @@ export const NotificationsScreen: React.FC = () => {
       <View style={styles.header}>
         <Text style={[styles.title, { color: themeColors.text }]}>Notifications</Text>
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          {/* ✅ UNREAD COUNT DISPLAY */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: rs(10) }}>
           {unreadCount > 0 && (
             <View style={styles.badge}>
               <Text style={styles.badgeText}>{unreadCount}</Text>
             </View>
           )}
-
           <TouchableOpacity onPress={markAllRead}>
             <Text style={[styles.actionText, { color: colors.light.success }]}>
               Mark all read
@@ -142,18 +125,16 @@ export const NotificationsScreen: React.FC = () => {
           <TouchableOpacity key={item.id || index} onPress={() => !item.read && markAsRead(item.id)}>
             <NeumorphicCard style={[styles.notifCard, item.read && { opacity: 0.7 }]}>
               <View style={[styles.iconBox, { backgroundColor: getIconBg(item.type) }]}>
-                <Icon name={getIconName(item.type)} size={20} color="#FFF" />
+                <Icon name={getIconName(item.type)} size={rs(20)} color="#FFF" />
               </View>
 
               <View style={styles.cardContent}>
                 <Text style={[styles.notifTitle, { color: themeColors.text }]}>
                   {item.title}
                 </Text>
-
                 <Text style={[styles.notifMessage, { color: themeColors.textSecondary }]}>
                   {parseNotificationBody(item.body, item.title)}
                 </Text>
-
                 <Text style={[styles.notifTime, { color: themeColors.textSecondary }]}>
                   {new Date(item.createdAt).toLocaleString()}
                 </Text>
@@ -165,7 +146,7 @@ export const NotificationsScreen: React.FC = () => {
         ))
       ) : (
         <View style={styles.emptyContainer}>
-          <Icon name="bell-off-outline" size={64} color={themeColors.outline + '30'} />
+          <Icon name="bell-off-outline" size={rs(64)} color={themeColors.outline + '30'} />
           <Text style={[styles.emptyText, { color: themeColors.textSecondary }]}>
             No notifications yet
           </Text>
@@ -203,112 +184,65 @@ const getIconBg = (type: string) => {
 
 const parseNotificationBody = (body: string, title: string): string => {
   const isoMatch = body.match(/(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[^Z\s]*Z)/);
-
   if (isoMatch && isoMatch[1]) {
     const timestamp = new Date(isoMatch[1]);
     const formattedTime = timestamp.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: true
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
     });
-
     return body.replace(isoMatch[1], `${formattedTime}`);
   }
-
   return body;
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  centered: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  content: {
-    padding: 24,
-    gap: 16,
-  },
+  container: { flex: 1 },
+  centered: { justifyContent: 'center', alignItems: 'center' },
+  content: { padding: rs(24), gap: rs(16) },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: rvs(8),
   },
-  title: {
-    fontSize: 24,
-    fontWeight: '900',
-  },
-  actionText: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
+  title: { fontSize: rms(24), fontWeight: '900' },
+  actionText: { fontSize: rms(14), fontWeight: '700' },
   badge: {
     backgroundColor: '#FF3B30',
-    borderRadius: 10,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    borderRadius: rs(10),
+    paddingHorizontal: rs(6),
+    paddingVertical: rvs(2),
   },
-  badgeText: {
-    color: '#FFF',
-    fontSize: 10,
-    fontWeight: '800',
-  },
+  badgeText: { color: '#FFF', fontSize: rms(10), fontWeight: '800' },
   notifCard: {
     flexDirection: 'row',
-    padding: 16,
-    gap: 16,
+    padding: rs(16),
+    gap: rs(16),
     alignItems: 'center',
   },
   iconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: rs(44),
+    height: rs(44),
+    borderRadius: rs(14),
     justifyContent: 'center',
     alignItems: 'center',
   },
-  cardContent: {
-    flex: 1,
-    gap: 2,
-  },
-  notifTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  notifMessage: {
-    fontSize: 12,
-    fontWeight: '500',
-    lineHeight: 18,
-  },
-  notifTime: {
-    fontSize: 10,
-    fontWeight: '700',
-    marginTop: 4,
-  },
+  cardContent: { flex: 1, gap: rvs(2) },
+  notifTitle: { fontSize: rms(14), fontWeight: '800' },
+  notifMessage: { fontSize: rms(12), fontWeight: '500', lineHeight: rms(18) },
+  notifTime: { fontSize: rms(10), fontWeight: '700', marginTop: rvs(4) },
   unreadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: rs(8),
+    height: rs(8),
+    borderRadius: rs(4),
     backgroundColor: '#4299E1',
   },
   emptyContainer: {
-    padding: 60,
+    padding: rs(60),
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 16,
+    gap: rs(16),
   },
-  emptyText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  loadMoreButton: {
-    marginTop: 16,
-    height: 56,
-  },
-  loadMoreText: {
-    fontSize: 14,
-    fontWeight: '700',
-  }
+  emptyText: { fontSize: rms(16), fontWeight: '600' },
+  loadMoreButton: { marginTop: rvs(16), height: rvs(56) },
+  loadMoreText: { fontSize: rms(14), fontWeight: '700' },
 });
