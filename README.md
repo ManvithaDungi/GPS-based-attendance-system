@@ -14,28 +14,39 @@ Attendance is validated using both **location** and **duration**:
 - Presence duration must be at least **6 hours** to be marked as `PRESENT`.
 - Attendance below 6 hours is marked as `ABSENT` (invalid for the day).
 
+## Deployment Links
+
+### Student Mobile App (React Native + Expo)
+Live Demo:  
+[gps-based-attendance-system-j4mc.vercel.app](https://gps-based-attendance-system-j4mc.vercel.app/?utm_source=chatgpt.com)
+
+---
+
+### 🖥️ Admin Dashboard (React + Vite)
+Live Demo:  
+[gps-based-attendance-system-khaki.vercel.app](https://gps-based-attendance-system-khaki.vercel.app/attendance?utm_source=chatgpt.com)
+
+---
+
+### Backend API (Node.js + Express + TypeScript)
+API Base URL:  
+[gps-attendance-api.onrender.com](https://gps-attendance-api.onrender.com/?utm_source=chatgpt.com)
+
+> **Note:** Since the backend is hosted on Render free tier, the server may spin down after inactivity. Please wait a few seconds for it to wake up before using the frontend applications.
+
 ---
 
 ## Tech Stack
 
-- **Mobile**: React Native with Expo
-- **Backend**: Node.js + Express + TypeScript
-- **Database**: PostgreSQL with Prisma ORM
-- **Caching**: Redis
-- **Infrastructure**: Docker + Docker Compose
-- **Shared**: TypeScript types and constants
-
----
-
-## Deployed Links
-
-- **Mobile webiste**: React Native with Expo - https://gps-based-attendance-system-j4mc.vercel.app/
-- **Admin webiste**: React with Vite - https://gps-based-attendance-system-khaki.vercel.app/attendance
-- **Backend**: Node.js + Express + TypeScript - https://gps-attendance-api.onrender.com/ - make sure your backend is running before u open the websites
-- **Database**: PostgreSQL with Prisma ORM
-- **Caching**: Redis
-- **Infrastructure**: Docker + Docker Compose
-- **Shared**: TypeScript types and constants
+| Layer | Technology |
+|---|---|
+| Mobile App | React Native + Expo |
+| Admin Dashboard | React + Vite |
+| Backend | Node.js + Express + TypeScript |
+| Database | PostgreSQL + Prisma ORM |
+| Cache Layer | Redis |
+| Infrastructure | Docker + Docker Compose |
+| Shared Code | TypeScript Types & Constants |
 
 ---
 
