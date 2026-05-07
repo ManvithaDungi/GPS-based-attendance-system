@@ -23,13 +23,10 @@ jobs:
     defaults:
       run:
         working-directory: ${{ env.WORKING_DIR }}
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -48,16 +45,12 @@ jobs:
     defaults:
       run:
         working-directory: ${{ env.WORKING_DIR }}
-
     env:
       VITE_API_URL: ${{ secrets.VITE_API_URL }}
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -73,48 +66,68 @@ jobs:
       - name: Build web app
         run: npm run build
 
-      - name: Upload build artifact
+      # Upload the Vite output AND Vercel's project config so deploy
+      # job can call `vercel deploy --prebuilt` without rebuilding.
+      # vercel build writes to .vercel/output/; we need both.
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel environment & link project
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Package Vercel output for deploy
+        # `vercel build --prod` would re-run npm build internally.
+        # Instead we move our already-built dist/ into the location
+        # Vercel expects for a static site and write the required
+        # Build Output API config file ourselves.
+        run: |
+          mkdir -p .vercel/output/static
+          cp -r dist/. .vercel/output/static/
+          cat > .vercel/output/config.json <<'EOF'
+          {
+            "version": 3,
+            "routes": [
+              { "handle": "filesystem" },
+              { "src": "/(.*)", "dest": "/index.html" }
+            ]
+          }
+          EOF
+
+      - name: Upload Vercel output artifact
         uses: actions/upload-artifact@v4
         with:
-          name: web-dist
-          path: ${{ env.WORKING_DIR }}/dist/
-          retention-days: 7
+          name: vercel-output
+          path: ${{ env.WORKING_DIR }}/.vercel/output/
+          retention-days: 1          # only needed for the deploy job
 
   deploy:
     name: Deploy to Vercel
     runs-on: ubuntu-latest
     needs: build
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    defaults:
-      run:
-        working-directory: ${{ env.WORKING_DIR }}
-
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: ${{ env.WORKING_DIR }}/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
+      - uses: actions/checkout@v4   # needed for vercel project metadata
 
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
 
-      - name: Pull Vercel environment
+      - name: Download Vercel output artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: vercel-output
+          path: ${{ env.WORKING_DIR }}/.vercel/output/
+
+      - name: Pull Vercel project config
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+        working-directory: ${{ env.WORKING_DIR }}
 
-      - name: Build Vercel output
-        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Deploy to Vercel
+      # No `vercel build` — artifact already contains Build Output API layout
+      - name: Deploy prebuilt output
         run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+        working-directory: ${{ env.WORKING_DIR }}
