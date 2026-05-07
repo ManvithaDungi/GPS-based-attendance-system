@@ -34,7 +34,7 @@ router.get(
 /**
  * GET /api/v1/admin/dashboard
  */
-router.get('/dashboard', authMiddleware, requireRole('ADMIN'), adminController.getDashboardStats);
+router.get('/dashboard', authMiddleware, requireRole('ADMIN'), adminController.getDashboard);
 
 /**
  * GET /api/v1/admin/reports

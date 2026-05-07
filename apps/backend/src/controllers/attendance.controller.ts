@@ -277,6 +277,12 @@ export const checkOut = async (req: Request, res: Response): Promise<Response> =
           allowedRadiusM: error.allowedRadiusM,
         });
       }
+      if (error.message === 'INVALID_STATE') {
+        return res.status(400).json({ error: 'INVALID_STATE' });
+      }
+      if (error.message === 'INVALID_TIMESTAMP') {
+        return res.status(400).json({ error: 'INVALID_TIMESTAMP' });
+      }
     }
     
     return res.status(500).json({ error: 'INTERNAL_ERROR' });

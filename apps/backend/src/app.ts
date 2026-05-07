@@ -16,9 +16,9 @@ const app: Express = express();
 // Middleware
 // app.ts
 app.use(cors({
-  origin: '*',
+  origin: "*",
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key'],
 }));
 app.use(helmet());
 app.use(express.json());

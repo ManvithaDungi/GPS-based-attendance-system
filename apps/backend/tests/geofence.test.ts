@@ -90,17 +90,15 @@ describe('Geofence APIs', () => {
       });
     });
 
-    it('should reject invalid query params with documented low accuracy response', async () => {
+    it('should reject invalid query params with VALIDATION_ERROR', async () => {
       const res = await request(app)
         .get(`/api/v1/geofence/validate?lat=invalid&lng=10&locationId=${locationId}&accuracyMeters=10`)
         .set('Authorization', `Bearer ${studentToken}`);
 
       expect(res.status).toBe(400);
-      expect(res.body).toEqual({
-        error: 'LOW_GPS_ACCURACY',
-        message: 'Device GPS accuracy is too low; location is untrustworthy',
-        statusCode: 400,
-      });
+      expect(res.body.error).toBe('VALIDATION_ERROR');
+      expect(Array.isArray(res.body.details)).toBe(true);
+      expect(res.body.details[0]?.path).toContain('lat');
     });
 
     it('should return LOCATION_NOT_FOUND for an unknown location', async () => {

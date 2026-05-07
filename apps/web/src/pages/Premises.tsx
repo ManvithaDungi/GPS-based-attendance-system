@@ -4,21 +4,26 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { Map as MapIcon, MapPin, Navigation, RefreshCw, Plus, Pencil, X, Check } from 'lucide-react';
+import { Map as MapIcon, MapPin, Navigation, RefreshCw, Plus, Pencil, X, Check, Trash2 } from 'lucide-react';
 import { Circle, MapContainer, Marker, Popup, TileLayer } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import api from '../lib/api';
 import { NeumorphicCard } from '../components/common/NeumorphicCard';
 import { cn } from '../lib/utils';
+import { ConfirmModal } from '../components/common/ConfirmModal';
+
+// ✅ Bundle leaflet icons locally — works offline and respects CSP
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+  iconRetinaUrl: markerIcon2x,
+  iconUrl: markerIcon,
+  shadowUrl: markerShadow,
 });
-
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Premise = {
@@ -44,12 +49,13 @@ const Modal: React.FC<{
   title: string;
   onClose: () => void;
   onSubmit: () => void;
+  onDelete?: () => void;
   submitting: boolean;
   submitLabel: string;
   form: PremiseFormData;
   onChange: (field: keyof PremiseFormData, value: string) => void;
   error: string;
-}> = ({ title, onClose, onSubmit, submitting, submitLabel, form, onChange, error }) => (
+}> = ({ title, onClose, onSubmit, onDelete, submitting, submitLabel, form, onChange, error }) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center">
     {/* Backdrop */}
     <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
@@ -59,8 +65,22 @@ const Modal: React.FC<{
       <NeumorphicCard className="p-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
-          <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 font-headline">{title}</h3>
+          <div className="flex items-center gap-3">
+            <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 font-headline">{title}</h3>
+            {onDelete && (
+              <button
+                type="button"
+                onClick={onDelete}
+                disabled={submitting}
+                className="px-3 py-2 rounded-xl bg-danger/10 text-danger text-xs font-black hover:bg-danger/15 disabled:opacity-50 transition-colors flex items-center gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete Premise
+              </button>
+            )}
+          </div>
           <button
+            type="button"
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
           >
@@ -171,6 +191,7 @@ export const Premises = () => {
   // Modal state
   const [showAdd, setShowAdd] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [form, setForm] = useState<PremiseFormData>(EMPTY_FORM);
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -273,7 +294,7 @@ export const Premises = () => {
     if (!selectedPremise) return;
     setSubmitting(true);
     try {
-      await api.patch(`/geofence/locations/${selectedPremise.id}`, {
+      await api.put(`/geofence/locations/${selectedPremise.id}`, {
         name: form.name.trim(),
         latitude: Number(form.latitude),
         longitude: Number(form.longitude),
@@ -284,6 +305,29 @@ export const Premises = () => {
       await fetchPremises();
     } catch (e: any) {
       setFormError(e.response?.data?.message ?? 'Failed to update premise.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!selectedPremise) return;
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!selectedPremise) return;
+    setSubmitting(true);
+    setFormError('');
+    try {
+      await api.delete(`/geofence/locations/${selectedPremise.id}`);
+      setShowEdit(false);
+      setShowDeleteConfirm(false);
+      setSelectedId(null);
+      setLoading(true);
+      await fetchPremises();
+    } catch (e: any) {
+      setFormError(e.response?.data?.message ?? 'Failed to delete premise.');
     } finally {
       setSubmitting(false);
     }
@@ -313,6 +357,7 @@ export const Premises = () => {
           title="Edit Premise"
           onClose={() => setShowEdit(false)}
           onSubmit={handleEdit}
+          onDelete={handleDelete}
           submitting={submitting}
           submitLabel="Save Changes"
           form={form}
@@ -320,6 +365,17 @@ export const Premises = () => {
           error={formError}
         />
       )}
+
+      <ConfirmModal
+        open={showDeleteConfirm}
+        title="Delete premise"
+        message={selectedPremise ? `Are you sure you want to delete "${selectedPremise.name}"? This cannot be undone.` : 'Are you sure you want to delete this premise?'}
+        confirmLabel="Delete"
+        danger
+        confirming={submitting}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={confirmDelete}
+      />
 
       <div className="h-[calc(100vh-120px)] flex gap-8 animate-in zoom-in-95 duration-500">
         {/* ── Sidebar ── */}

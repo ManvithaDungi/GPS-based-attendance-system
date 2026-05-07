@@ -131,6 +131,7 @@ export const ProfileScreen: React.FC = () => {
 
       <ConfirmModal
         visible={showModal}
+        title="Sign Out"
         message="Are you sure you want to sign out?"
         onCancel={() => setShowModal(false)}
         onConfirm={confirmLogout}

@@ -652,7 +652,18 @@ Admin routes are mounted under `/api/v1/admin` and protected by both `authMiddle
 > A student token will receive `403` on all admin routes.
 
 ### GET `/admin/attendance`
-Returns paginated attendance logs for all students.
+Returns paginated attendance logs for all students (soft-deleted records excluded).
+
+**Query Params:**
+
+| Param | Type | Default | Description |
+|---|---|---|---|
+| `page` | number | `1` | Page number |
+| `limit` | number | `20` | Records per page |
+| `from` | string | — | Start date filter (`YYYY-MM-DD`) applied on `AttendanceLog.date` |
+| `to` | string | — | End date filter (`YYYY-MM-DD`) applied on `AttendanceLog.date` |
+
+> `from`/`to` are normalized to **date-only** boundaries server-side (00:00:00). This is used by the web admin dashboard calendar to fetch a single day via `from=YYYY-MM-DD&to=YYYY-MM-DD`.
 
 ### GET `/admin/students`
 Returns a paginated list of all student users.
@@ -667,7 +678,14 @@ Create a new student account.
 Suspend or activate a student account.
 
 ### GET `/admin/dashboard`
-Returns high-level statistics: `totalStudents`, `presentToday`, `lateToday`, `totalLocations`.
+Returns high-level statistics for **today**:
+
+- `totalStudents`: count of active (non-soft-deleted) student users
+- `presentToday`: count of attendance logs with status `PRESENT`
+- `lateToday`: count of attendance logs with status `LATE`
+- `absentToday`: count of attendance logs with status `ABSENT`
+- `pendingToday`: count of attendance logs with status `PENDING` (checked in, not yet checked out)
+- `totalLocations`: count of active (non-soft-deleted) `Location` records
 
 ### GET `/admin/reports`
 Returns recent report export jobs.

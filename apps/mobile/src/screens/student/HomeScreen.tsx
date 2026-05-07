@@ -21,6 +21,7 @@ import { shadow } from '../../utils/styles';
 import { api } from '../../services/api';
 import { AppHeader } from '@/src/components/AppHeader';
 import { rs, rvs, rms } from '../../utils/responsive';
+import { ConfirmModal } from '../../components/ConfirmModal';
 
 // ─── Types matching your API exactly ────────────────────────────────────────
 
@@ -118,6 +119,7 @@ export const HomeScreen: React.FC = () => {
   const [distanceM, setDistanceM] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showCheckoutConfirm, setShowCheckoutConfirm] = useState(false);
   const [timer, setTimer] = useState('00:00:00');
   const [mapInteractive, setMapInteractive] = useState(false);
 
@@ -295,6 +297,15 @@ export const HomeScreen: React.FC = () => {
     }
   };
 
+  const onPressAction = () => {
+    const status = getStatus();
+    if (status === 'checked-in') {
+      setShowCheckoutConfirm(true);
+      return;
+    }
+    handleAction();
+  };
+
   // ── Duration display ───────────────────────────────────────────────────────
   const durationDisplay = (() => {
     const s = getStatus();
@@ -368,8 +379,20 @@ export const HomeScreen: React.FC = () => {
 
       {/* ── Check-in Button ───────────────────────────────────────────────── */}
       <View style={styles.buttonSection}>
-        <CheckInButton status={getStatus()} onPress={handleAction} isLoading={isProcessing} />
+        <CheckInButton status={getStatus()} onPress={onPressAction} isLoading={isProcessing} />
       </View>
+
+      <ConfirmModal
+        visible={showCheckoutConfirm}
+        title="Confirm check-out"
+        message="Are you sure you want to check out?"
+        confirmLabel="Check out"
+        onCancel={() => setShowCheckoutConfirm(false)}
+        onConfirm={() => {
+          setShowCheckoutConfirm(false);
+          handleAction();
+        }}
+      />
 
       {/* ── Stats Row ─────────────────────────────────────────────────────── */}
       <View style={styles.statsGrid}>

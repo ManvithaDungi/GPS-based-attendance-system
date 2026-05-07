@@ -43,12 +43,19 @@ export const validateGeofence = async (req: Request, res: Response): Promise<Res
     return res.status(200).json(result);
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
-      return sendError(
-        res,
-        400,
-        'LOW_GPS_ACCURACY',
-        'Device GPS accuracy is too low; location is untrustworthy'
-      );
+      const hasAccuracyIssue = error.issues.some((i) => i.path.includes('accuracyMeters'));
+      const onlyAccuracyIssues = error.issues.every((i) => i.path.includes('accuracyMeters'));
+
+      if (hasAccuracyIssue && onlyAccuracyIssues) {
+        return sendError(
+          res,
+          400,
+          'LOW_GPS_ACCURACY',
+          'Device GPS accuracy is too low; location is untrustworthy'
+        );
+      }
+
+      return res.status(400).json({ error: 'VALIDATION_ERROR', details: error.issues });
     }
 
     if (error instanceof Error && error.message === 'LOCATION_NOT_FOUND') {
