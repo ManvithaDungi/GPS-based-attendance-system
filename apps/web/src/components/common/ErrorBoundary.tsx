@@ -11,6 +11,9 @@ type State = {
 
 export class ErrorBoundary extends React.Component<Props, State> {
   state: State = { hasError: false };
+  // TS safeguard: some React type setups in this repo lose the `props` field
+  // on `this`, so declare it explicitly for typechecking.
+  declare readonly props: Props;
 
   static getDerivedStateFromError(): State {
     return { hasError: true };
