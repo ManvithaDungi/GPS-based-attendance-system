@@ -72,6 +72,9 @@ jobs:
       - name: Pull Vercel environment
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
 
+      - name: Build web app
+        run: npm run build
+
       - name: Create Vercel output from dist
         run: |
           mkdir -p .vercel/output/static
