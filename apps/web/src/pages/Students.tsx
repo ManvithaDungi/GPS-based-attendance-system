@@ -50,6 +50,70 @@ type BulkResult = {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const LIMIT = 10;
+const MAX_BULK_IMPORT = 500;
+
+type BulkStudentRecord = {
+  name: string;
+  email: string;
+  password: string;
+  studentCode?: string;
+};
+
+const isNonEmptyString = (value: unknown): value is string =>
+  typeof value === 'string' && value.trim().length > 0;
+
+const isValidEmail = (value: string): boolean =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+
+const validateBulkStudentRecord = (value: unknown, index: number) => {
+  const issues: string[] = [];
+
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {
+      ok: false as const,
+      result: {
+        name: `#${index + 1}`,
+        email: '—',
+        success: false,
+        message: 'Invalid record: each item must be an object.',
+      } satisfies BulkResult,
+    };
+  }
+
+  const record = value as Record<string, unknown>;
+  const name = record.name;
+  const email = record.email;
+  const password = record.password;
+  const studentCode = record.studentCode;
+
+  if (!isNonEmptyString(name)) issues.push('name is required');
+  if (!isNonEmptyString(email) || !isValidEmail(email)) issues.push('valid email is required');
+  if (!isNonEmptyString(password) || password.trim().length < 6) issues.push('password must be at least 6 characters');
+  if (studentCode !== undefined && studentCode !== null && typeof studentCode !== 'string')
+    issues.push('studentCode must be a string');
+
+  if (issues.length > 0) {
+    return {
+      ok: false as const,
+      result: {
+        name: isNonEmptyString(name) ? name : `#${index + 1}`,
+        email: isNonEmptyString(email) ? email : '—',
+        success: false,
+        message: `Validation failed: ${issues.join(', ')}.`,
+      } satisfies BulkResult,
+    };
+  }
+
+  return {
+    ok: true as const,
+    record: {
+      name: (name as string).trim(),
+      email: (email as string).trim().toLowerCase(),
+      password: (password as string).trim(),
+      ...(isNonEmptyString(studentCode) ? { studentCode: studentCode.trim() } : {}),
+    } satisfies BulkStudentRecord,
+  };
+};
 
 // ─── Students ─────────────────────────────────────────────────────────────────
 
@@ -155,13 +219,22 @@ export const Students = () => {
 
     try {
       const text = await file.text();
-      const parsed: { name: string; email: string; password: string; studentCode?: string }[] = JSON.parse(text);
+      const parsed: unknown = JSON.parse(text);
 
-      if (!Array.isArray(parsed)) throw new Error('JSON must be an array.');
+      if (!Array.isArray(parsed)) throw new Error('Invalid file. JSON must be an array of student objects.');
+      if (parsed.length === 0) throw new Error('Invalid file. JSON array is empty.');
+      if (parsed.length > MAX_BULK_IMPORT) throw new Error(`Too many records. Max allowed is ${MAX_BULK_IMPORT}.`);
 
       const results: BulkResult[] = [];
 
-      for (const student of parsed) {
+      const validStudents: BulkStudentRecord[] = [];
+      parsed.forEach((value, index) => {
+        const validated = validateBulkStudentRecord(value, index);
+        if (validated.ok) validStudents.push(validated.record);
+        else results.push(validated.result);
+      });
+
+      for (const student of validStudents) {
         try {
           await api.post('/admin/students', { ...student, role: 'STUDENT' });
           results.push({ name: student.name, email: student.email, success: true });

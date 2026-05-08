@@ -48,7 +48,6 @@ export const Login = () => {
         return;
       }
       localStorage.setItem('accessToken', response.data.accessToken);
-      localStorage.setItem('refreshToken', response.data.refreshToken);
       localStorage.setItem('userRole', response.data.user.role);
       navigate('/');
     } catch (err: any) {

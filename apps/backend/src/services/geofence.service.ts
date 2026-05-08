@@ -78,18 +78,40 @@ export const validateGeofence = async ({
   };
 };
 
-export const getActiveLocations = async () => {
-  return prisma.location.findMany({
-    where: { deletedAt: null },
-    select: {
-      id: true,
-      name: true,
-      latitude: true,
-      longitude: true,
-      radiusMeters: true,
+export const getActiveLocations = async (page: number = 1, limit: number = 50) => {
+  const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
+  const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : 50;
+  const cappedLimit = Math.min(Math.max(safeLimit, 1), 200);
+  const skip = (safePage - 1) * cappedLimit;
+
+  const where = { deletedAt: null as Date | null };
+
+  const [data, total] = await Promise.all([
+    prisma.location.findMany({
+      where,
+      select: {
+        id: true,
+        name: true,
+        latitude: true,
+        longitude: true,
+        radiusMeters: true,
+      },
+      orderBy: { name: 'asc' },
+      skip,
+      take: cappedLimit,
+    }),
+    prisma.location.count({ where }),
+  ]);
+
+  return {
+    data,
+    pagination: {
+      page: safePage,
+      limit: cappedLimit,
+      total,
+      totalPages: Math.ceil(total / cappedLimit),
     },
-    orderBy: { name: 'asc' },
-  });
+  };
 };
 
 export const getLocationById = async (locationId: string) => {

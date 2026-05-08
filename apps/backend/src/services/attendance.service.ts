@@ -139,6 +139,7 @@ export const recordCheckOut = async ({
   return prisma.attendanceLog.update({
     where: { id: log.id },
     data: {
+      locationId,
       checkOutTime: timestamp,
       checkOutLat: latitude,
       checkOutLng: longitude,

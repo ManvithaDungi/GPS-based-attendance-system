@@ -21,9 +21,19 @@ const menuItems = [
 ];
 
 export const Sidebar = () => {
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      // Best-effort server logout to clear httpOnly refresh cookie + revoke session
+      await fetch(`${import.meta.env.VITE_API_URL}/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+    } catch {
+      // ignore
+    }
     localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
     localStorage.removeItem('userRole');
     window.location.href = '/login';
   };

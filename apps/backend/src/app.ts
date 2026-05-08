@@ -1,6 +1,7 @@
 import express, { Express } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 
 import authRoutes from './routes/auth.routes';
 import attendanceRoutes from './routes/attendance.routes';
@@ -15,13 +16,27 @@ const app: Express = express();
 
 // Middleware
 // app.ts
-app.use(cors({
-  origin: "*",
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key'],
-}));
+const allowedOrigins = (process.env.FRONTEND_URL ?? '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow non-browser clients (no Origin header)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.length === 0) return callback(null, false);
+      return callback(null, allowedOrigins.includes(origin));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key', 'X-CSRF-Token'],
+  })
+);
 app.use(helmet());
 app.use(express.json());
+app.use(cookieParser());
 
 // Routes
 app.use('/api/v1/auth', authRoutes);

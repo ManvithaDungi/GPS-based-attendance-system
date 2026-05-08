@@ -8,6 +8,7 @@ if (!baseURL) {
 
 const api = axios.create({
   baseURL,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -30,23 +31,18 @@ api.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        const refreshToken = localStorage.getItem('refreshToken');
-        if (!refreshToken) throw new Error('Missing refresh token');
-
         const response = await axios.post(
           `${baseURL}/auth/refresh`,
-          { refreshToken },
-          { headers: { 'Content-Type': 'application/json' } }
+          {},
+          { headers: { 'Content-Type': 'application/json' }, withCredentials: true }
         );
 
         localStorage.setItem('accessToken', response.data.accessToken);
-        localStorage.setItem('refreshToken', response.data.refreshToken);
 
         originalRequest.headers.Authorization = `Bearer ${response.data.accessToken}`;
         return api(originalRequest);
       } catch {
         localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
         localStorage.removeItem('userRole');
         window.location.href = '/login';
       }

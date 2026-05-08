@@ -1,13 +1,13 @@
 import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth.middleware';
-import { loginRateLimiter } from '../middleware/rateLimiter.middleware';
+import { authRateLimiter, loginRateLimiter } from '../middleware/rateLimiter.middleware';
 import * as authController from '../controllers/auth.controller';
 
 const router = Router();
 
-router.post('/register', authController.register);
+router.post('/register', authRateLimiter, authController.register);
 router.post('/login', loginRateLimiter, authController.login);
-router.post('/refresh', authController.refresh);
+router.post('/refresh', authRateLimiter, authController.refresh);
 router.post('/logout', authMiddleware, authController.logout);
 
 router.get('/me', authMiddleware, authController.getMe);

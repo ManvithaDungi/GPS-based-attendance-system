@@ -21,7 +21,7 @@ const loginSchema = z.object({
 });
 
 const refreshSchema = z.object({
-  refreshToken: z.string()
+  refreshToken: z.string().optional()
 });
 
 const fcmTokenSchema = z.object({
@@ -40,6 +40,36 @@ const generateTokens = (userId: string, role: string) => {
   const accessToken = jwt.sign({ userId, role }, jwtSecret, { expiresIn: '15m' });
   const refreshToken = jwt.sign({ userId }, refreshSecret, { expiresIn: '7d' });
   return { accessToken, refreshToken };
+};
+
+const REFRESH_COOKIE_NAME = 'refreshToken';
+
+const setRefreshCookie = (res: Response, refreshToken: string) => {
+  const isProd = process.env.NODE_ENV === 'production';
+  res.cookie(REFRESH_COOKIE_NAME, refreshToken, {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
+    path: '/api/v1/auth',
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+};
+
+const clearRefreshCookie = (res: Response) => {
+  const isProd = process.env.NODE_ENV === 'production';
+  res.clearCookie(REFRESH_COOKIE_NAME, {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
+    path: '/api/v1/auth',
+  });
+};
+
+const getRefreshTokenFromRequest = (req: Request): string | null => {
+  const parsed = refreshSchema.safeParse(req.body);
+  if (parsed.success && parsed.data.refreshToken) return parsed.data.refreshToken;
+  const cookieToken = (req as Request & { cookies?: Record<string, string | undefined> }).cookies?.[REFRESH_COOKIE_NAME];
+  return cookieToken ?? null;
 };
 
 export const register = async (req: Request, res: Response): Promise<Response> => {
@@ -137,6 +167,8 @@ export const login = async (req: Request, res: Response): Promise<Response> => {
       }
     });
 
+    setRefreshCookie(res, refreshToken);
+
     return res.status(200).json({
       accessToken,
       refreshToken,
@@ -158,10 +190,13 @@ export const login = async (req: Request, res: Response): Promise<Response> => {
 
 export const refresh = async (req: Request, res: Response): Promise<Response> => {
   try {
-    const data = refreshSchema.parse(req.body);
+    const refreshToken = getRefreshTokenFromRequest(req);
+    if (!refreshToken) {
+      return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Missing refresh token' });
+    }
 
     const session = await prisma.session.findUnique({
-      where: { refreshToken: data.refreshToken },
+      where: { refreshToken },
       include: { user: true }
     });
 
@@ -171,9 +206,16 @@ export const refresh = async (req: Request, res: Response): Promise<Response> =>
         message: 'Invalid or expired refresh token'
       });
     }
+    
+    if (session.user.status !== 'ACTIVE') {
+      return res.status(401).json({
+        error: 'ACCOUNT_SUSPENDED',
+        message: 'Your account has been suspended. Contact admin for details.'
+      });
+    }
 
     try {
-      jwt.verify(data.refreshToken, getRefreshSecret());
+      jwt.verify(refreshToken, getRefreshSecret());
     } catch (e) {
       return res.status(401).json({
         error: 'UNAUTHORIZED',
@@ -194,6 +236,8 @@ export const refresh = async (req: Request, res: Response): Promise<Response> =>
       }
     });
 
+    setRefreshCookie(res, newRefreshToken);
+
     return res.status(200).json({
       accessToken,
       refreshToken: newRefreshToken
@@ -208,15 +252,20 @@ export const refresh = async (req: Request, res: Response): Promise<Response> =>
 
 export const logout = async (req: Request, res: Response): Promise<Response> => {
   try {
-    const data = refreshSchema.parse(req.body);
+    const refreshToken = getRefreshTokenFromRequest(req);
+    if (!refreshToken) {
+      clearRefreshCookie(res);
+      return res.status(200).json({ message: 'Logged out successfully' });
+    }
 
     await prisma.session.deleteMany({
       where: {
-        refreshToken: data.refreshToken,
+        refreshToken,
         userId: req.user!.id,
       },
     });
 
+    clearRefreshCookie(res);
     return res.status(200).json({ message: 'Logged out successfully' });
   } catch (error) {
     return res.status(500).json({ error: 'INTERNAL_ERROR' });
