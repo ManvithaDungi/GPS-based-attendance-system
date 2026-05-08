@@ -93,8 +93,7 @@ jobs:
         run: |
           url=$(vercel deploy --prebuilt \
             --token=$VERCEL_TOKEN \
-            --yes \
-            2>&1 | grep -o 'https://[^ ]*' | tail -1)
+            --yes 2>&1 | grep -o 'https://[^ ]*' | tail -1)
           echo "preview_url=$url" >> $GITHUB_OUTPUT
 
       - name: Comment preview URL on PR
