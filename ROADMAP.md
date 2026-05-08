@@ -1,35 +1,96 @@
-# InDaZone Roadmap
+# InDaZone
 
-Comprehensive roadmap, architecture, and implementation plan for the GPS-based attendance platform.
+Enterprise-grade GPS and geofencing-based attendance management platform built for secure, auditable, and real-time attendance tracking.
 
-## Product Goals
+InDaZone combines a React Native mobile application for students, a React web-based admin dashboard, and a Node.js backend with PostgreSQL and Redis to deliver reliable location-verified attendance workflows.
 
-- Allow check-in/check-out only inside a geofence (default: 100m radius).
-- Mark attendance as valid only if on-premise duration is at least 6 hours.
-- Prevent proxy attendance through multi-signal validation.
-- Provide auditable, reliable attendance records for students and admins.
+---
 
-## Tech Stack
+# Table of Contents
 
-- Mobile app (student): React Native or Flutter.
-- Web dashboard (admin): Next.js + React, with `@react-google-maps/api` for map rendering.
-- Backend: Node.js + Express (or NestJS for larger teams).
-- Alternative backend: Python + FastAPI.
-- Database: PostgreSQL for attendance and user data.
-- Cache: Redis for active sessions and geofence metadata.
-- Location input: Device Geolocation API.
-- Map visualization: Google Maps JavaScript API (or Static Maps API).
-- Push notifications: FCM (Android), APNs (iOS).
-- Auth: JWT access tokens + refresh token rotation, with role-based authorization.
+1. Overview
+2. Core Features
+3. System Architecture
+4. Technology Stack
+5. Monorepo Structure
+6. Authentication and Security
+7. Attendance Workflow
+8. Backend Services
+9. API Overview
+10. Mobile Application
+11. Web Admin Dashboard
+12. Database Design
+13. Redis and Queue Architecture
+14. Fraud Prevention and Validation
+15. Environment Configuration
+16. Local Development Setup
+17. Deployment Strategy
+18. Observability and Monitoring
+19. Roadmap
+20. Future Enhancements
 
-## Architecture Notes
+---
 
-- Geofence validation must run server-side (never trust client-only checks).
-- Use Redis to avoid database hits for every location ping.
-- Keep attendance writes idempotent and enforce daily uniqueness at the DB layer.
-- Treat location as one signal among several (time, device, behavior).
+# Overview
 
-## Attendance Flow (ASCII)
+InDaZone is designed to solve proxy attendance, unreliable location validation, and poor auditability in traditional attendance systems.
+
+The platform enforces:
+
+* Server-side geofence validation
+* GPS accuracy verification
+* Replay attack prevention
+* Device-bound authentication sessions
+* Minimum attendance duration rules
+* Fraud and anomaly detection
+* Real-time attendance monitoring
+* Role-based administrative control
+
+The system architecture is built around scalability, security, operational reliability, and production-grade attendance auditing.
+
+---
+
+# Core Features
+
+## Student Features
+
+* GPS-based check-in and check-out
+* Live geofence validation
+* Real-time attendance status
+* Attendance history and summaries
+* Push notifications
+* Secure JWT authentication
+* Device-bound sessions
+* Low GPS accuracy rejection
+* Geofence boundary distance display
+
+## Admin Features
+
+* Attendance monitoring dashboard
+* Student management
+* Student account suspension and activation
+* Geofence premise management
+* Attendance analytics
+* Fraud and security logs
+* Real-time attendance visibility
+* Attendance exports
+* Location working-hours configuration
+
+## Platform Features
+
+* JWT access and refresh token rotation
+* Redis-backed rate limiting
+* Idempotent attendance requests
+* BullMQ async processing
+* Fraud event processing
+* Structured error handling
+* Redis cache-aside architecture
+* Audit-safe attendance logging
+* Soft deletion support
+
+---
+
+# System Architecture
 
 ```text
 ================================================================================
@@ -37,11 +98,11 @@ Comprehensive roadmap, architecture, and implementation plan for the GPS-based a
 |                                                                              |
 |  +---------------------------+    +--------------------------+               |
 |  |  Student Mobile App       |    |  Admin Dashboard         |               |
-|  |  (React Native / Flutter) |    |  (Next.js / React)       |               |
+|  |  (React Native / Expo)    |    |  (React + Vite)          |               |
 |  |                           |    |                          |               |
-|  |  - GPS capture            |    |  - View attendance logs  |               |
-|  |  - Map display            |    |  - Manage premises       |               |
-|  |  - Check-in / check-out   |    |  - Export reports        |               |
+|  |  - GPS capture            |    |  - Attendance analytics  |               |
+|  |  - Geofence map           |    |  - Student management    |               |
+|  |  - Check-in/check-out     |    |  - Geofence management   |               |
 |  +---------------------------+    +--------------------------+               |
 |              | HTTPS / API                    | HTTPS / API                  |
 ================================================================================
@@ -51,28 +112,27 @@ Comprehensive roadmap, architecture, and implementation plan for the GPS-based a
 |                               BACKEND LAYER                                  |
 |                                                                              |
 |  +-----------------------------------------------------------------------+   |
-|  |                         API Gateway / Auth                            |   |
-|  |                    JWT Auth + Rate Limiting + RBAC                    |   |
+|  |                     API Gateway + Authentication                      |   |
+|  |                JWT + RBAC + Rate Limiting + Validation                |   |
 |  +-----------------------------------------------------------------------+   |
 |                    |                              |                          |
 |                    v                              v                          |
 |  +---------------------------+   +---------------------------+               |
 |  |  Geofence Service         |   |  Attendance Service       |               |
-|  |  Haversine / 100m radius  |   |  POST /check-in           |               |
-|  |  Redis cache lookup       |   |  POST /check-out          |               |
-|  |  Returns within / outside |   |  PRESENT / ABSENT logic   |               |
+|  |  Haversine validation     |   |  Check-in/check-out       |               |
+|  |  Redis cache lookup       |   |  Duration calculation     |               |
 |  +---------------------------+   +---------------------------+               |
 |                    |                              |                          |
 |                    v                              v                          |
 |  +---------------------------+   +---------------------------+               |
-|  |  Notification Service     |   |  Fraud / Async Worker     |               |
-|  |  FCM / APNs               |   |  Risk scoring             |               |
-|  |  Push reminders           |   |  Impossible velocity      |               |
+|  |  Notification Service     |   |  Fraud Detection Worker   |               |
+|  |  FCM notifications        |   |  Risk scoring             |               |
+|  |  Alerts/reminders         |   |  Velocity validation      |               |
 |  +---------------------------+   +---------------------------+               |
 |                                                                              |
 |                         +---------------------------+                        |
-|                         |  BullMQ / Redis Queue     |                        |
-|                         |  retry / delay / cron     |                        |
+|                         |     BullMQ + Redis        |                        |
+|                         |   Queues + Cron Jobs      |                        |
 |                         +---------------------------+                        |
 ================================================================================
                   |
@@ -83,206 +143,749 @@ Comprehensive roadmap, architecture, and implementation plan for the GPS-based a
 |  +--------------------+   +--------------------+   +----------------------+  |
 |  | PostgreSQL         |   | Redis              |   | Google Maps API      |  |
 |  |                    |   |                    |   |                      |  |
-|  | users              |   | active_sessions    |   | geocoding / map UI   |  |
-|  | premises           |   | geofence_cache     |   | admin dashboard maps |  |
-|  | attendance_logs    |   | rate_limits        |   |                      |  |
-|  | sessions           |   | revoked_tokens     |   |                      |  |
+|  | users              |   | active_sessions    |   | map rendering        |  |
+|  | locations          |   | geofence_cache     |   | geocoding            |  |
+|  | attendance_logs    |   | queues             |   | geofence UI          |  |
+|  | sessions           |   | rate_limits        |   |                      |  |
+|  | notifications      |   | revoked_tokens     |   |                      |  |
 |  +--------------------+   +--------------------+   +----------------------+  |
 ================================================================================
+```
 
-CHECK-IN FLOW
+---
 
+# Technology Stack
+
+## Mobile Application
+
+* React Native
+* Expo
+* TypeScript
+* React Navigation
+* Expo Location
+* Axios
+* React Native Maps
+
+## Web Admin Dashboard
+
+* React 19
+* TypeScript
+* Vite 6
+* React Router
+* Tailwind CSS 4
+* Leaflet
+* React Leaflet
+* Lucide Icons
+* Axios
+
+## Backend
+
+* Node.js
+* Express.js
+* PostgreSQL
+* Prisma ORM
+* Redis
+* BullMQ
+* JWT Authentication
+* Zod Validation
+
+## Infrastructure
+
+* Docker
+* CI/CD pipelines
+* Render deployment support
+* Redis-backed queues
+* Structured logging
+* Rate limiting
+
+---
+
+# Monorepo Structure
+
+```text
+InDaZone/
+│
+├── apps/
+│   ├── mobile/
+│   │   ├── src/
+│   │   ├── components/
+│   │   ├── screens/
+│   │   ├── hooks/
+│   │   └── services/
+│   │
+│   ├── web/
+│   │   ├── src/
+│   │   ├── pages/
+│   │   ├── components/
+│   │   ├── lib/
+│   │   └── routes/
+│   │
+│   └── backend/
+│       ├── src/
+│       ├── routes/
+│       ├── middleware/
+│       ├── services/
+│       ├── queues/
+│       ├── prisma/
+│       └── utils/
+│
+├── packages/
+├── docker/
+├── scripts/
+└── docs/
+```
+
+---
+
+# Authentication and Security
+
+## Authentication Model
+
+The platform uses JWT-based authentication with refresh token rotation.
+
+### Access Token
+
+* Short-lived
+* 15-minute expiry
+* Attached via `Authorization: Bearer <token>`
+
+### Refresh Token
+
+* 7-day expiry
+* Single-use rotation
+* Stored in the session table
+* Invalidated on logout
+
+## Session Enforcement
+
+* Student sessions are single-device enforced
+* Login replaces previous active student sessions
+* Sessions are linked to:
+
+  * `userId`
+  * `deviceId`
+  * `refreshToken`
+
+## Role-Based Access Control
+
+Supported roles:
+
+* `ADMIN`
+* `STUDENT`
+
+Admin-only routes are protected using RBAC middleware.
+
+## Security Features
+
+* JWT verification
+* Refresh token rotation
+* Redis-backed rate limiting
+* Replay attack protection
+* Idempotent attendance APIs
+* GPS accuracy validation
+* Fraud logging
+* Device fingerprint validation
+* Soft deletion support
+* Structured error middleware
+* SSL pinning support for mobile clients
+
+---
+
+# Attendance Workflow
+
+## Check-In Flow
+
+```text
 Student taps check-in
-  |
-  v
-Device captures GPS coordinates { lat, lng, timestamp }
-  |
-  v
-POST /check-in { student_id, lat, lng, timestamp }
-  |
-  v
-Server-side geofence check
-  |
-  +--> YES --> Log check_in_time
-  |              Store in PostgreSQL
-  |              Return 200 OK
-  |
-  +--> NO  --> Return 403 Forbidden
-         "Outside geofence"
+        |
+        v
+Device captures GPS coordinates
+        |
+        v
+POST /attendance/checkin
+        |
+        v
+Server-side geofence validation
+        |
+        +--> Outside radius -> Reject request
+        |
+        +--> Inside radius -> Create attendance record
+                                status = PENDING
+```
 
-CHECK-OUT FLOW
+## Check-Out Flow
 
+```text
 Student taps check-out
-  |
-  v
-POST /check-out { student_id, lat, lng, timestamp }
-  |
-  v
-Server verifies check-in exists
-  |
-  v
-Compute duration = check_out_time - check_in_time
-  |
-  +--> duration >= 6 HOURS --> attendance = PRESENT
-  |                           Write to PostgreSQL
-  |
-  +--> duration < 6 HOURS  --> attendance = ABSENT
-                Write to PostgreSQL
-
-DATABASE SCHEMA (simplified)
-
-users                       premises                    attendance_logs
------                       --------                    ---------------
-id (PK)                     id (PK)                    id (PK)
-name                        name                       student_id (FK -> users)
-email                       latitude                   premise_id (FK -> premises)
-role                        longitude                  check_in_time
-password_hash               radius_meters              check_out_time
-created_at                  created_at                 duration_hours
-              updated_at                 status [PRESENT | ABSENT | PENDING]
-                             date
-                             created_at
+        |
+        v
+POST /attendance/checkout
+        |
+        v
+Validate same-day check-in exists
+        |
+        v
+Calculate attendance duration
+        |
+        +--> duration >= minimum hours -> PRESENT
+        |
+        +--> duration < minimum hours -> ABSENT
 ```
 
-## Delivery Plan (16 Weeks)
+## Attendance Rules
 
-### Phase 1 - Foundation (Weeks 1-3)
+* Default geofence radius: `100 meters`
+* Minimum valid duration: `6 hours`
+* GPS accuracy above `100m` is rejected
+* Timestamps older than `30 seconds` are rejected
+* Duplicate attendance is prevented using idempotency and DB constraints
 
-- Monorepo setup and CI/CD pipeline.
-- Auth flow: JWT access + refresh rotation, RBAC middleware.
-- Core schema: users, premises, attendance_logs, sessions.
-- Database migrations tooling (Prisma Migrate or Flyway). [New]
-- Environment separation: dev, staging, prod. [New]
-- API versioning strategy (/v1/...). [New]
-- Structured logging setup (Pino) with audit fields from day one. [New]
+---
 
-### Phase 2 - Core Geofencing + Rate Limiting (Weeks 4-6)
+# Backend Services
 
-- Geofence service: server-side Haversine, 100m radius enforcement.
-- POST /check-in and POST /check-out endpoints.
-- Redis cache for premises config (cache-aside, TTL 10 minutes).
-- Rate limiting on attendance endpoints (token bucket, 3 requests/min per student). [Moved Earlier]
-- Signed timestamp on check-in requests; reject if older than 30 seconds (replay protection). [New]
-- Fallback to Postgres geofence lookup when Redis is unavailable. [New]
+## Auth Service
 
-### Phase 3 - Attendance Validation + Async Queue (Weeks 7-8)
+Responsibilities:
 
-- Persist check_in_time and check_out_time, apply 6-hour minimum rule.
-- Unique DB constraint on (student_id, date), not only app-level checks.
-- Midnight crossover handling and auto-close for unclosed sessions.
-- BullMQ queue setup on Redis. [New]
-- Emit location.ping events and run fraud checks asynchronously. [New]
-- Nightly cron sweep for unclosed sessions. [New]
+* Login
+* Registration
+* Token refresh
+* Session management
+* Password management
+* RBAC validation
 
-### Phase 4 - Mobile App (Weeks 8-11)
+## Attendance Service
 
-- Student app UI, auth flow, and role-based screens.
-- Foreground and optional background location permissions.
-- Live map with geofence circle and distance-to-boundary.
-- Check-in and check-out API integration.
-- Today's attendance status and history view.
-- Push notification handling (FCM and APNs).
-- Circuit breaker: show cached status when API is unreachable. [New]
+Responsibilities:
 
-### Phase 5 - Admin Dashboard (Weeks 12-14)
+* Check-in processing
+* Check-out processing
+* Duration calculation
+* Attendance summaries
+* Attendance history
+* Idempotency enforcement
 
-- Premises registration and management (lat/lng/radius).
-- Attendance views by student, class, and date.
-- CSV export.
-- Analytics: attendance rate, frequent absentees, late arrivals.
-- Read replica for admin queries to offload primary DB. [New]
-- WebSocket or SSE for real-time attendance updates. [New]
-- Audit log view with full status change history. [New]
+## Geofence Service
 
-### Phase 6 - Hardening and Launch (Weeks 15-16)
+Responsibilities:
 
-- Fraud worker: impossible velocity, altitude anomaly, device fingerprint mismatch.
-- SSL pinning in mobile clients.
-- GDPR-aligned retention and deletion policies.
-- Load testing and staged rollout.
-- Postgres attendance_logs table partitioning by month. [New]
-- Backup and point-in-time recovery strategy for Postgres. [New]
-- Prometheus metrics: check-in latency, geofence rejection rate, active sessions. [New]
-- Alerting on error spikes and queue backlog. [New]
+* Server-side Haversine calculations
+* Radius validation
+* Redis cache lookup
+* Location validation
 
-## System Architecture (Layered)
+## Notification Service
 
-### 1. Client Layer
+Responsibilities:
 
-- Mobile App (React Native or Flutter): device GPS, UX-side pre-check, signed timestamp on check-in, SSL pinning, optional background location.
-- Admin Dashboard (Next.js): premises management, attendance views, CSV exports, analytics, real-time updates.
+* FCM push notifications
+* Attendance reminders
+* Alert delivery
 
-### 2. Edge / Gateway Layer
+## Fraud Detection Worker
 
-- CDN (for web static assets): edge caching and DDoS protection.
-- L7 Load Balancer: routes requests to stateless API workers; sticky sessions not required.
-- Rate Limiter (Redis token bucket): per-student and per-IP throttle before business logic.
+Responsibilities:
 
-### 3. Application Layer (Stateless Workers)
+* Impossible velocity detection
+* Device mismatch detection
+* GPS spoofing indicators
+* Risk scoring
+* Fraud event logging
 
-- Auth Service: JWT access tokens (15 min), refresh rotation, RBAC.
-- Geofence Service: server-side Haversine, Redis cache-aside with Postgres fallback.
-- Attendance Service: idempotent check-in/out, unique(student_id, date), event emission to queue.
-- Notification Service: FCM/APNs delivery with retries and dead-letter handling.
+---
 
-### 4. Async Layer
+# API Overview
 
-- Job Queue (BullMQ on Redis): location.ping and notification.send events.
-- Fraud Worker: velocity, altitude, and device mismatch checks with risk scoring.
-- Scheduled Jobs: nightly auto-close sweep for unclosed sessions.
+## Base URL
 
-### 5. Data Layer
-
-- PostgreSQL: source of truth for users, premises, sessions, and attendance logs.
-- Redis: cache and operational state (rate limits, active sessions, queues, revoked tokens).
-
-## Gaps and Additions Applied
-
-- Rate limiting moved to Phase 2 because it is a core anti-fraud control.
-- Replay attack prevention added via signed timestamp and 30-second acceptance window.
-- API versioning enforced from day one (/v1) to support backward compatibility.
-- Observability added early: structured logs with audit fields for every check-in decision.
-- Async fraud checks added via queue so p99 check-in latency stays low.
-- Real-time admin updates added through WebSocket/SSE (polling as fallback).
-- DB migration tooling included from Phase 1 to avoid manual production SQL changes.
-- Read replica strategy added for heavy dashboard reads.
-- Postgres partitioning and backup/PITR strategy added for long-term reliability.
-
-## Core Server-Side Logic
-
-```javascript
-function isWithinGeofence(studentLat, studentLng, premiseLat, premiseLng, radiusMeters) {
-  const R = 6371000; // Earth radius in meters
-
-  const phi1 = (studentLat * Math.PI) / 180;
-  const phi2 = (premiseLat * Math.PI) / 180;
-  const deltaPhi = ((premiseLat - studentLat) * Math.PI) / 180;
-  const deltaLambda = ((premiseLng - studentLng) * Math.PI) / 180;
-
-  const a =
-    Math.sin(deltaPhi / 2) ** 2 +
-    Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) ** 2;
-
-  const distance = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return distance <= radiusMeters;
-}
-
-function markAttendance(checkIn, checkOut) {
-  const hours = (checkOut - checkIn) / 3600000;
-  return hours >= 6 ? "PRESENT" : "ABSENT";
-}
+```text
+http://localhost:3000/api/v1
 ```
 
-## Anti-Proxy and Fraud Controls
+## Authentication Routes
 
-- Timestamp sanity checks: reject future timestamps and stale events older than 5 minutes.
-- Impossible travel velocity detection across consecutive pings.
-- Device binding or fingerprinting to reduce account sharing.
-- Risk scoring to combine location, device, and behavior signals.
+| Method | Endpoint             | Description              |
+| ------ | -------------------- | ------------------------ |
+| POST   | `/auth/register`     | Register admin account   |
+| POST   | `/auth/login`        | Login and receive tokens |
+| POST   | `/auth/refresh`      | Rotate refresh token     |
+| POST   | `/auth/logout`       | Logout session           |
+| GET    | `/auth/me`           | Current user profile     |
+| PATCH  | `/auth/me/password`  | Change password          |
+| PATCH  | `/auth/me/fcm-token` | Update push token        |
 
-## Minimum Launch Criteria
+## Attendance Routes
 
-- Stable check-in/check-out under expected peak load.
-- End-to-end audit trail for attendance status changes.
-- Admin exports and analytics available.
-- Security controls (rate limits, token rotation, basic spoof detection) active.
+| Method | Endpoint               | Description        |
+| ------ | ---------------------- | ------------------ |
+| POST   | `/attendance/checkin`  | Student check-in   |
+| POST   | `/attendance/checkout` | Student check-out  |
+| GET    | `/attendance/today`    | Current attendance |
+| GET    | `/attendance/history`  | Attendance history |
+| GET    | `/attendance/summary`  | Attendance summary |
+
+## Geofence Routes
+
+| Method | Endpoint                          | Description          |
+| ------ | --------------------------------- | -------------------- |
+| GET    | `/geofence/validate`              | Validate coordinates |
+| GET    | `/geofence/locations`             | List locations       |
+| GET    | `/geofence/locations/:locationId` | Location details     |
+| POST   | `/geofence/locations`             | Create location      |
+| PUT    | `/geofence/locations/:id`         | Update location      |
+| DELETE | `/geofence/locations/:id`         | Delete location      |
+
+## Admin Routes
+
+| Method | Endpoint                                  | Description          |
+| ------ | ----------------------------------------- | -------------------- |
+| GET    | `/admin/dashboard`                        | Dashboard metrics    |
+| GET    | `/admin/attendance`                       | Attendance logs      |
+| GET    | `/admin/students`                         | Student list         |
+| POST   | `/admin/students`                         | Create student       |
+| PATCH  | `/admin/students/:id/status`              | Update status        |
+| GET    | `/admin/reports`                          | Export jobs          |
+| GET    | `/admin/config`                           | Global config        |
+| PATCH  | `/admin/config/working-hours/:locationId` | Update working hours |
+
+## Notifications and Fraud
+
+| Method | Endpoint                  | Description            |
+| ------ | ------------------------- | ---------------------- |
+| GET    | `/notifications`          | User notifications     |
+| PATCH  | `/notifications/:id/read` | Mark notification read |
+| GET    | `/fraud`                  | Fraud logs             |
+
+---
+
+# Mobile Application
+
+The student mobile application is responsible for secure attendance capture and real-time geofence awareness.
+
+## Mobile Features
+
+* Secure authentication
+* Attendance check-in/check-out
+* Live location validation
+* Geofence map visualization
+* Distance-to-boundary indicators
+* Attendance history
+* Attendance summaries
+* Push notifications
+* Role-aware screens
+* API retry and offline-safe handling
+
+## Mobile Permissions
+
+* Foreground location permission
+* Optional background location permission
+* Notification permission
+
+## Mobile API Integration
+
+The mobile app integrates directly with:
+
+* `/auth/*`
+* `/attendance/*`
+* `/geofence/*`
+* `/notifications/*`
+
+---
+
+# Web Admin Dashboard
+
+The admin dashboard is a React + Vite application used by administrators for attendance operations and monitoring.
+
+## Dashboard Features
+
+### Overview Dashboard
+
+* Total students
+* Present today
+* Absent today
+* Late today
+* Active locations
+* Attendance trends
+* Current admin profile details
+
+### Attendance Monitoring
+
+* Paginated attendance records
+* Attendance filtering
+* Student identity display
+* Status and punctuality badges
+* Check-in/check-out timestamps
+* Duration tracking
+
+### Student Management
+
+* Student directory
+* Search and filtering
+* Student registration
+* Bulk student upload
+* Student suspension and activation
+
+### Premises Management
+
+* Geofence creation
+* Geofence editing
+* Geofence deletion
+* Interactive maps
+* Radius visualization
+* Coordinate validation
+
+### Fraud and Security Logs
+
+* Fraud event listing
+* Risk-level indicators
+* Event details
+* Security monitoring
+
+## Session Handling
+
+The dashboard uses:
+
+* Access token storage
+* Refresh token rotation
+* Axios interceptors
+* Protected routes
+* Automatic logout on refresh failure
+
+---
+
+# Database Design
+
+## Core Tables
+
+### users
+
+| Field         | Description        |
+| ------------- | ------------------ |
+| id            | UUID primary key   |
+| name          | User full name     |
+| email         | User email         |
+| password_hash | Hashed password    |
+| role          | ADMIN/STUDENT      |
+| status        | ACTIVE/SUSPENDED   |
+| studentCode   | Student identifier |
+
+### locations
+
+| Field        | Description      |
+| ------------ | ---------------- |
+| id           | UUID primary key |
+| name         | Premise name     |
+| latitude     | Latitude         |
+| longitude    | Longitude        |
+| radiusMeters | Geofence radius  |
+
+### attendance_logs
+
+| Field         | Description                 |
+| ------------- | --------------------------- |
+| id            | UUID primary key            |
+| studentId     | Linked student              |
+| locationId    | Linked location             |
+| checkInTime   | Check-in timestamp          |
+| checkOutTime  | Check-out timestamp         |
+| durationHours | Attendance duration         |
+| status        | PRESENT/LATE/ABSENT/PENDING |
+| punctuality   | ON_TIME/LATE                |
+
+### sessions
+
+| Field        | Description          |
+| ------------ | -------------------- |
+| id           | UUID primary key     |
+| userId       | Linked user          |
+| deviceId     | Device fingerprint   |
+| refreshToken | Stored refresh token |
+| expiresAt    | Expiration timestamp |
+
+---
+
+# Redis and Queue Architecture
+
+Redis is used for:
+
+* Rate limiting
+* Active session caching
+* Idempotency locks
+* Queue processing
+* Geofence caching
+* Token revocation
+
+## BullMQ Queues
+
+### attendance-events
+
+Processes:
+
+* Fraud detection
+* Statistics aggregation
+* Notification dispatching
+* Audit logging
+
+## Cache Strategy
+
+* Cache-aside pattern
+* Geofence TTL: 10 minutes
+* Automatic invalidation on updates
+
+---
+
+# Fraud Prevention and Validation
+
+## Validation Layers
+
+### GPS Accuracy Validation
+
+Requests are rejected when:
+
+```text
+accuracyMeters > 100
+```
+
+### Replay Attack Prevention
+
+Requests are rejected when timestamps are stale.
+
+```text
+Maximum allowed age: 30 seconds
+```
+
+### Device Validation
+
+Sessions are bound to device identifiers.
+
+### Impossible Travel Detection
+
+Velocity analysis is performed between consecutive location events.
+
+### Idempotency Protection
+
+Attendance endpoints support:
+
+```http
+Idempotency-Key: <unique-request-id>
+```
+
+This prevents duplicate attendance writes caused by retries or race conditions.
+
+---
+
+# Environment Configuration
+
+## Backend
+
+```env
+PORT=3000
+DATABASE_URL=postgresql://...
+REDIS_URL=redis://...
+JWT_SECRET=your_jwt_secret
+REFRESH_TOKEN_SECRET=your_refresh_secret
+GOOGLE_MAPS_API_KEY=your_maps_key
+```
+
+## Web Dashboard
+
+```env
+VITE_API_URL=http://localhost:3000/api/v1
+```
+
+## Mobile Application
+
+```env
+EXPO_PUBLIC_API_URL=http://localhost:3000/api/v1
+```
+
+---
+
+# Local Development Setup
+
+## Backend
+
+```bash
+cd apps/backend
+npm install
+npm run dev
+```
+
+## Web Dashboard
+
+```bash
+cd apps/web
+npm install
+npm run dev
+```
+
+## Mobile Application
+
+```bash
+cd apps/mobile
+npm install
+npx expo start
+```
+
+---
+
+# Deployment Strategy
+
+## Backend
+
+Recommended:
+
+* Render
+* Railway
+* AWS
+* Docker containers
+
+## Web Dashboard
+
+Recommended:
+
+* Vercel
+* Netlify
+
+## Database
+
+Recommended:
+
+* PostgreSQL managed hosting
+* Daily backups
+* Point-in-time recovery
+
+## Redis
+
+Recommended:
+
+* Redis Cloud
+* Managed Redis instance
+
+---
+
+# Observability and Monitoring
+
+## Logging
+
+* Structured logging
+* Attendance audit trails
+* Fraud event tracking
+* API request tracing
+
+## Metrics
+
+Recommended production metrics:
+
+* Check-in latency
+* Queue backlog
+* Attendance success rate
+* Geofence rejection rate
+* Active sessions
+* Fraud event counts
+
+## Monitoring Stack
+
+Recommended:
+
+* Prometheus
+* Grafana
+* Centralized logging
+* Alerting pipelines
+
+---
+
+# Roadmap
+
+## Phase 1 — Foundation
+
+* Monorepo setup
+* CI/CD pipeline
+* JWT authentication
+* RBAC middleware
+* Database schema
+* Environment separation
+* API versioning
+* Structured logging
+
+## Phase 2 — Core Geofencing
+
+* Geofence validation
+* Attendance endpoints
+* Redis cache layer
+* Rate limiting
+* Replay protection
+* Redis fallback handling
+
+## Phase 3 — Attendance Validation
+
+* Attendance duration logic
+* Queue integration
+* Fraud event processing
+* Midnight auto-close handling
+* Nightly cron sweeps
+
+## Phase 4 — Mobile Application
+
+* Student application
+* Location permissions
+* Geofence map
+* Push notifications
+* Offline-safe UI handling
+
+## Phase 5 — Admin Dashboard
+
+* Attendance analytics
+* Student management
+* Geofence management
+* CSV exports
+* Real-time attendance updates
+* Audit log interface
+
+## Phase 6 — Hardening and Launch
+
+* Fraud detection improvements
+* SSL pinning
+* Load testing
+* Postgres partitioning
+* Backup strategy
+* Monitoring and alerting
+
+---
+
+# Future Enhancements
+
+Planned improvements include:
+
+* Bulk student import APIs
+* Advanced reporting exports
+* PDF and CSV generation queues
+* Real-time WebSocket attendance streams
+* Advanced device mismatch enforcement
+* Multi-campus support
+* Offline attendance sync
+* AI-assisted fraud detection
+* Admin-triggered broadcast notifications
+
+---
+
+# Production Principles
+
+The platform is designed around the following engineering principles:
+
+* Never trust client-side geofence validation
+* Keep attendance writes idempotent
+* Validate every attendance action server-side
+* Treat location as one signal among several
+* Maintain complete attendance auditability
+* Separate synchronous attendance writes from asynchronous fraud analysis
+* Prioritize operational reliability and scalability
+
+---
+
+# License
+
+This project is intended for academic, institutional, and enterprise attendance management use cases.
+
+All rights reserved.
