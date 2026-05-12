@@ -9,6 +9,7 @@ import { Sidebar } from './components/layout/Sidebar';
 import { TopBar } from './components/layout/TopBar';
 import { Login } from './pages/Login';
 import { Overview } from './pages/Overview';
+import { HelpCenter } from './pages/HelpCenter';
 import { Attendance } from './pages/Attendance';
 import { Premises } from './pages/Premises';
 import { Logs } from './pages/Logs';
@@ -67,6 +68,10 @@ export default function App() {
           
           <Route path="/logs" element={
             <ProtectedRoute><Logs /></ProtectedRoute>
+          } />
+
+          <Route path="/help" element={
+            <ProtectedRoute><HelpCenter /></ProtectedRoute>
           } />
 
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -10,24 +10,31 @@ import geofenceRoutes from './routes/geofence.routes';
 import studentRoutes from './routes/student.routes';
 import notificationRoutes from './routes/notification.routes';
 import fraudRoutes from './routes/fraud.routes';
+import supportRoutes from './routes/support.routes';
+import rateLimit from 'express-rate-limit';
 import { errorHandler } from './middleware/error.middleware';
 
 const app: Express = express();
 
 // Middleware
-// app.ts
-const allowedOrigins = (process.env.FRONTEND_URL ?? '')
+const normalizeOrigin = (value: string): string => value.replace(/\/+$/, '');
+const envOrigins = `${process.env.FRONTEND_URL ?? ''},${process.env.CORS_ORIGIN ?? ''}`
   .split(',')
   .map((o) => o.trim())
-  .filter(Boolean);
+  .filter(Boolean)
+  .map(normalizeOrigin);
+
+// Keep local development working even if env variables were not loaded.
+const fallbackDevOrigins = ['http://localhost:8081', 'http://localhost:5173'];
+const allowedOrigins = Array.from(new Set([...envOrigins, ...fallbackDevOrigins]));
 
 app.use(
   cors({
     origin: (origin, callback) => {
       // Allow non-browser clients (no Origin header)
       if (!origin) return callback(null, true);
-      if (allowedOrigins.length === 0) return callback(null, false);
-      return callback(null, allowedOrigins.includes(origin));
+      const normalizedOrigin = normalizeOrigin(origin);
+      return callback(null, allowedOrigins.includes(normalizedOrigin));
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -46,6 +53,15 @@ app.use('/api/v1/geofence', geofenceRoutes);
 app.use('/api/v1/student', studentRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/fraud', fraudRoutes);
+// Support (feedback) endpoint — mount under /api/v1 to match frontend baseURL (/api/v1)
+const supportLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // limit each IP to 10 requests per windowMs
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many support requests from this IP, please try again later.' },
+});
+app.use('/api/v1/support', supportLimiter, supportRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
