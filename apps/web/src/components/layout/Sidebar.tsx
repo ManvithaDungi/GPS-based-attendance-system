@@ -23,11 +23,14 @@ const menuItems = [
 export const Sidebar = () => {
   const handleLogout = async () => {
     try {
+      const accessToken = localStorage.getItem('accessToken');
       // Best-effort server logout to clear httpOnly refresh cookie + revoke session
       await fetch(`${import.meta.env.VITE_API_URL}/auth/logout`, {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers: Object.assign({ 'Content-Type': 'application/json' },
+          accessToken ? { Authorization: `Bearer ${accessToken}` } : {}
+        ),
         body: JSON.stringify({}),
       });
     } catch {
