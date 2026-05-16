@@ -37,6 +37,7 @@ export const Sidebar = () => {
       // ignore
     }
     localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
     localStorage.removeItem('userRole');
     window.location.href = '/login';
   };
