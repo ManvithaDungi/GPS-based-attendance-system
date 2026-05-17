@@ -19,7 +19,7 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   accessToken: string | null;
-  login: (accessToken: string, refreshToken: string, user: User) => Promise<void>;
+  login: (accessToken: string, refreshToken: string, user: User, csrfToken?: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshAuth: () => Promise<void>;
 }
