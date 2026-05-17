@@ -58,8 +58,8 @@ export const LoginScreen: React.FC = () => {
     try {
       const deviceId = await getDeviceId();
       const response = await api.post('/auth/login', { email, password, deviceId });
-      const { accessToken, refreshToken, user } = response.data;
-      await login(accessToken, refreshToken, user);
+      const { accessToken, refreshToken, user, csrfToken } = response.data;
+      await login(accessToken, refreshToken, user, csrfToken);
     } catch (err: any) {
       Alert.alert('Login Failed', err.response?.data?.message || 'Please check your credentials');
     } finally {

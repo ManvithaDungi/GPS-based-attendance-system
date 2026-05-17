@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { prisma } from '../utils/prisma';
 import { getJwtSecret, getRefreshSecret } from '../utils/env';
+import { randomBytes } from 'crypto';
 
 // Schemas
 const registerSchema = z.object({
@@ -21,7 +22,7 @@ const loginSchema = z.object({
 });
 
 const refreshSchema = z.object({
-  refreshToken: z.string()
+  refreshToken: z.string().optional()
 });
 
 const fcmTokenSchema = z.object({
@@ -40,6 +41,60 @@ const generateTokens = (userId: string, role: string) => {
   const accessToken = jwt.sign({ userId, role }, jwtSecret, { expiresIn: '15m' });
   const refreshToken = jwt.sign({ userId }, refreshSecret, { expiresIn: '7d' });
   return { accessToken, refreshToken };
+};
+
+const REFRESH_COOKIE_NAME = 'refreshToken';
+const REFRESH_CSRF_NAME = 'refreshCsrf';
+
+const setRefreshCookie = (res: Response, refreshToken: string): string => {
+  const isProd = process.env.NODE_ENV === 'production';
+  // Generate a CSRF token for double-submit cookie pattern
+  const csrf = randomBytes(16).toString('hex');
+
+  // HttpOnly refresh token cookie
+  res.cookie(REFRESH_COOKIE_NAME, refreshToken, {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
+    path: '/api/v1/auth',
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+
+  // Readable CSRF cookie (accessible from JS) for double-submit pattern.
+  // Set path to '/' so frontend JS can read it from application pages.
+  res.cookie(REFRESH_CSRF_NAME, csrf, {
+    httpOnly: false,
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
+    path: '/',
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+  return csrf;
+};
+
+const clearRefreshCookie = (res: Response) => {
+  const isProd = process.env.NODE_ENV === 'production';
+  res.clearCookie(REFRESH_COOKIE_NAME, {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
+    path: '/api/v1/auth',
+  });
+  res.clearCookie(REFRESH_CSRF_NAME, {
+    httpOnly: false,
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
+    path: '/',
+  });
+};
+
+type RefreshSource = 'body' | 'cookie' | null;
+const getRefreshTokenAndSource = (req: Request): { token: string | null; source: RefreshSource } => {
+  const parsed = refreshSchema.safeParse(req.body);
+  if (parsed.success && parsed.data.refreshToken) return { token: parsed.data.refreshToken, source: 'body' };
+  const cookieToken = (req as Request & { cookies?: Record<string, string | undefined> }).cookies?.[REFRESH_COOKIE_NAME];
+  if (cookieToken) return { token: cookieToken, source: 'cookie' };
+  return { token: null, source: null };
 };
 
 export const register = async (req: Request, res: Response): Promise<Response> => {
@@ -137,9 +192,12 @@ export const login = async (req: Request, res: Response): Promise<Response> => {
       }
     });
 
+    const csrf = setRefreshCookie(res, refreshToken);
+
     return res.status(200).json({
       accessToken,
       refreshToken,
+      csrfToken: csrf,
       user: {
         id: user.id,
         name: user.name,
@@ -158,10 +216,22 @@ export const login = async (req: Request, res: Response): Promise<Response> => {
 
 export const refresh = async (req: Request, res: Response): Promise<Response> => {
   try {
-    const data = refreshSchema.parse(req.body);
+    const { token: refreshToken, source } = getRefreshTokenAndSource(req);
+    if (!refreshToken) {
+      return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Missing refresh token' });
+    }
+
+    // If the refresh token came from the cookie, require a matching CSRF header (double-submit)
+    if (source === 'cookie') {
+      const headerCsrf = (req.headers['x-csrf-token'] as string | undefined) ?? null;
+      const cookieCsrf = (req as Request & { cookies?: Record<string, string | undefined> }).cookies?.[REFRESH_CSRF_NAME] ?? null;
+      if (!headerCsrf || headerCsrf !== cookieCsrf) {
+        return res.status(403).json({ error: 'CSRF_MISMATCH', message: 'Missing or invalid CSRF token' });
+      }
+    }
 
     const session = await prisma.session.findUnique({
-      where: { refreshToken: data.refreshToken },
+      where: { refreshToken },
       include: { user: true }
     });
 
@@ -171,9 +241,16 @@ export const refresh = async (req: Request, res: Response): Promise<Response> =>
         message: 'Invalid or expired refresh token'
       });
     }
+    
+    if (session.user.status !== 'ACTIVE') {
+      return res.status(401).json({
+        error: 'ACCOUNT_SUSPENDED',
+        message: 'Your account has been suspended. Contact admin for details.'
+      });
+    }
 
     try {
-      jwt.verify(data.refreshToken, getRefreshSecret());
+      jwt.verify(refreshToken, getRefreshSecret());
     } catch (e) {
       return res.status(401).json({
         error: 'UNAUTHORIZED',
@@ -194,9 +271,12 @@ export const refresh = async (req: Request, res: Response): Promise<Response> =>
       }
     });
 
+    const csrf = setRefreshCookie(res, newRefreshToken);
+
     return res.status(200).json({
       accessToken,
-      refreshToken: newRefreshToken
+      refreshToken: newRefreshToken,
+      csrfToken: csrf
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -208,15 +288,29 @@ export const refresh = async (req: Request, res: Response): Promise<Response> =>
 
 export const logout = async (req: Request, res: Response): Promise<Response> => {
   try {
-    const data = refreshSchema.parse(req.body);
+    const { token: refreshToken, source } = getRefreshTokenAndSource(req);
+    if (!refreshToken) {
+      clearRefreshCookie(res);
+      return res.status(200).json({ message: 'Logged out successfully' });
+    }
+
+    // If logout uses cookie-based refresh token, require CSRF header
+    if (source === 'cookie') {
+      const headerCsrf = (req.headers['x-csrf-token'] as string | undefined) ?? null;
+      const cookieCsrf = (req as Request & { cookies?: Record<string, string | undefined> }).cookies?.[REFRESH_CSRF_NAME] ?? null;
+      if (!headerCsrf || headerCsrf !== cookieCsrf) {
+        return res.status(403).json({ error: 'CSRF_MISMATCH', message: 'Missing or invalid CSRF token' });
+      }
+    }
 
     await prisma.session.deleteMany({
       where: {
-        refreshToken: data.refreshToken,
+        refreshToken,
         userId: req.user!.id,
       },
     });
 
+    clearRefreshCookie(res);
     return res.status(200).json({ message: 'Logged out successfully' });
   } catch (error) {
     return res.status(500).json({ error: 'INTERNAL_ERROR' });

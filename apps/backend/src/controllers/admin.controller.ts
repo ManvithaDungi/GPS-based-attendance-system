@@ -7,6 +7,7 @@ import {
   createAdminLocationSchema,
   updateAdminLocationSchema,
 } from '../schemas/admin-location.schemas';
+import { invalidateLocationCache } from '../cache/geofence.cache';
 // FIX: Import getDashboardStats from the service — do NOT define it here again.
 // The old local version used prisma.location (wrong model name), counted all
 // check-ins as "present" without filtering by status, and omitted absentToday
@@ -48,10 +49,9 @@ const updateWorkingHoursSchema = z.object({
 
 const invalidateGeofenceCache = async (locationId?: string): Promise<void> => {
   try {
-    const redis = getRedisClient();
-    const keys = ['geofence:locations'];
-    if (locationId) keys.push(`geofence:location:${locationId}`);
-    await redis.del(...keys);
+    if (locationId) {
+      await invalidateLocationCache(locationId);
+    }
   } catch {
     // Cache invalidation is best-effort; database write already succeeded.
   }
@@ -172,16 +172,32 @@ export const getAllStudents = async (req: Request, res: Response): Promise<Respo
 export const getStudentAttendance = async (req: Request, res: Response): Promise<Response> => {
   try {
     const studentId = req.params.studentId;
-
-    const attendance = await prisma.attendanceLog.findMany({
-      where: { studentId, deletedAt: null }, // FIX: was missing deletedAt filter
-      orderBy: { date: 'desc' },
-      include: {
-        location: { select: { name: true } },
-      },
+    const querySchema = z.object({
+      page: z.preprocess((v) => (Array.isArray(v) ? v[0] : v), z.coerce.number().int().positive().optional()),
+      limit: z.preprocess((v) => (Array.isArray(v) ? v[0] : v), z.coerce.number().int().positive().optional()),
     });
+    const query = querySchema.parse(req.query);
+    const page = query.page ?? 1;
+    const limit = Math.min(Math.max(query.limit ?? 50, 1), 200);
+    const skip = (page - 1) * limit;
 
-    return res.status(200).json({ data: attendance });
+    const [attendance, total] = await Promise.all([
+      prisma.attendanceLog.findMany({
+        where: { studentId, deletedAt: null }, // FIX: was missing deletedAt filter
+        orderBy: { date: 'desc' },
+        skip,
+        take: limit,
+        include: {
+          location: { select: { name: true } },
+        },
+      }),
+      prisma.attendanceLog.count({ where: { studentId, deletedAt: null } }),
+    ]);
+
+    return res.status(200).json({
+      data: attendance,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    });
   } catch {
     return res.status(500).json({ error: 'INTERNAL_ERROR' });
   }
@@ -423,6 +439,8 @@ export const updateWorkingHours = async (req: Request, res: Response): Promise<R
         minDurationHours: data.minDurationHours ?? 6,
       },
     });
+
+    await invalidateGeofenceCache(locationId);
 
     return res.status(200).json({ message: 'Working hours updated', data: updated });
   } catch (error) {

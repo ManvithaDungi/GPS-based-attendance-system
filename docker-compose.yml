@@ -6,6 +6,11 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-gps_attendance_system}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      SUPPORT_EMAIL: ${SUPPORT_EMAIL}
     ports:
       - "5432:5432"
     volumes:
@@ -51,6 +56,14 @@ services:
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:-your-secret-key}
       REFRESH_SECRET: ${REFRESH_SECRET:-your-refresh-secret}
+      # SMTP configuration (pull from host env or apps/backend/.env)
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      SUPPORT_EMAIL: ${SUPPORT_EMAIL}
+    env_file:
+      - ./apps/backend/.env
     ports:
       - "3000:3000"
     volumes:

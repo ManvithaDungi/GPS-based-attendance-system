@@ -262,6 +262,10 @@ http://localhost:3000/api/v1
 * Default TTL: 7 days
 * Stored in database sessions table
 
+Client storage notes:
+- Web admin portal: the web client prefers the refresh token be sent/managed as an HttpOnly cookie (the web UI stores only the `accessToken` and `userRole` in `localStorage`).
+- Mobile client: the mobile app persists both `accessToken` and `refreshToken` via the app `StorageService` (AsyncStorage on most platforms) to support refresh flows when offline.
+
 ### Protected Routes
 
 All protected routes require:

@@ -59,6 +59,15 @@ api.interceptors.request.use(async (config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  // If we have a stored CSRF token (set by server in login/refresh responses), include it
+  try {
+    const csrf = await StorageService.getItem('refreshCsrf');
+    if (csrf && config.url && (config.url.includes('/auth/refresh') || config.url.includes('/auth/logout'))) {
+      (config.headers as Record<string,string>)['x-csrf-token'] = csrf;
+    }
+  } catch (e) {
+    // ignore
+  }
   return config;
 });
 

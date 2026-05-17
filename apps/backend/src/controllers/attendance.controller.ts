@@ -139,7 +139,7 @@ export const checkIn = async (req: Request, res: Response): Promise<Response> =>
     const reqTimestamp = new Date(data.timestamp);
     const now = new Date();
     
-    if (now.getTime() - reqTimestamp.getTime() > 30000) {
+    if (Math.abs(now.getTime() - reqTimestamp.getTime()) > 30_000) {
       return res.status(400).json({
         error: 'STALE_TIMESTAMP',
         message: 'Timestamp is older than 30 seconds'
@@ -212,7 +212,7 @@ export const checkOut = async (req: Request, res: Response): Promise<Response> =
     const reqTimestamp = new Date(data.timestamp);
     const now = new Date();
     
-    if (now.getTime() - reqTimestamp.getTime() > 30000) {
+    if (Math.abs(now.getTime() - reqTimestamp.getTime()) > 30_000) {
       return res.status(400).json({
         error: 'STALE_TIMESTAMP',
         message: 'Timestamp is older than 30 seconds'

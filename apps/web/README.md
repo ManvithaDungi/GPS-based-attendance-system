@@ -39,9 +39,9 @@ VITE_API_URL=http://localhost:3000/api/v1
 ## Authentication And Session Model
 
 - Login stores:
-  - `localStorage.accessToken`
-  - `localStorage.refreshToken`
-  - `localStorage.userRole`
+  - `localStorage.accessToken` (access token JWT)
+  - `localStorage.userRole` (user role for UI gating)
+  - Note: the refresh token is issued by the API and is sent as an HttpOnly cookie by default; the web client does not persist the refresh token in `localStorage`.
 - All protected pages are wrapped by `ProtectedRoute` and require:
   - token present
   - `userRole === "ADMIN"`
@@ -51,12 +51,17 @@ VITE_API_URL=http://localhost:3000/api/v1
   - retries the failed request once
   - on refresh failure, clears auth storage and redirects to `/login`
 
+### CSRF / Refresh notes
+
+- The backend may issue the refresh token as an HttpOnly cookie and additionally set a readable `refreshCsrf` cookie. Browser clients must follow the double-submit pattern: read the `refreshCsrf` cookie and include the same value in the `x-csrf-token` header when calling `/auth/refresh` or `/auth/logout`.
+- The web client already reads `refreshCsrf` and attaches it to refresh/logout requests automatically. Non-browser clients (mobile) may send `{ refreshToken }` in the request body instead.
+
 ## Route-Level Feature Report
 
 ### `/login` - Admin Auth
 
 - Email/password sign-in UI
-- Device fingerprint sent as `web-admin-${navigator.userAgent}`
+- Device ID: a persisted `deviceId` stored in `localStorage` (generated via `crypto.randomUUID()` on first use) is sent with login requests as `deviceId`.
 - Role gate: non-admin users are blocked even with valid credentials
 - Token/userRole persistence in local storage
 - Includes registration flow (`/auth/register`) for admin onboarding path from the page UI

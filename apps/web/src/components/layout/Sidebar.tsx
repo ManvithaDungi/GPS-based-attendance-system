@@ -11,6 +11,7 @@ import {
   Users,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import api from '../../lib/api';
 
 const menuItems = [
   { icon: LayoutDashboard, label: 'Overview',   path: '/' },
@@ -21,9 +22,14 @@ const menuItems = [
 ];
 
 export const Sidebar = () => {
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      // Use shared axios client so interceptors attach Authorization and send cookies
+      await api.post('/auth/logout', {}, { withCredentials: true });
+    } catch (err) {
+      // ignore logout errors
+    }
     localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
     localStorage.removeItem('userRole');
     window.location.href = '/login';
   };
@@ -60,10 +66,18 @@ export const Sidebar = () => {
       </nav>
 
       <div className="mt-auto px-4 space-y-2 border-t border-black/5 dark:border-white/5 pt-6">
-        <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 hover:text-primary transition-all font-headline">
+        <NavLink
+          to="/help"
+          className={({ isActive }) => cn(
+            "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300",
+            isActive
+              ? "bg-surface-light dark:bg-surface-dark neumorphic-inset text-primary"
+              : "text-slate-500 hover:text-primary hover:neumorphic-raised"
+          )}
+        >
           <HelpCircle className="w-5 h-5" />
           <span className="font-medium text-sm">Help Center</span>
-        </button>
+        </NavLink>
         <button 
           onClick={handleLogout}
           className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-danger hover:neumorphic-raised transition-all font-headline"

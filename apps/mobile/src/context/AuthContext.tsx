@@ -19,7 +19,7 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   accessToken: string | null;
-  login: (accessToken: string, refreshToken: string, user: User) => Promise<void>;
+  login: (accessToken: string, refreshToken: string, user: User, csrfToken?: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshAuth: () => Promise<void>;
 }
@@ -53,13 +53,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await StorageService.removeItem('user');
   }, []);
 
-  const login = async (token: string, refreshToken: string, userData: User) => {
+  const login = async (token: string, refreshToken: string, userData: User, csrfToken?: string) => {
     setAccessToken(token);
     setAuthToken(token);
     setUser(userData);
     await StorageService.setItem('accessToken', token);
     await StorageService.setItem('refreshToken', refreshToken);
     await StorageService.setItem('user', JSON.stringify(userData));
+    if (csrfToken) {
+      await StorageService.setItem('refreshCsrf', csrfToken);
+    }
   };
 
   useEffect(() => {
@@ -93,12 +96,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!refreshToken) throw new Error('No refresh token');
       
       const response = await api.post('/auth/refresh', { refreshToken });
-      const { accessToken: newToken, refreshToken: newRefreshToken } = response.data;
+      const { accessToken: newToken, refreshToken: newRefreshToken, csrfToken } = response.data;
       
       setAccessToken(newToken);
       setAuthToken(newToken);
       await StorageService.setItem('accessToken', newToken);
       await StorageService.setItem('refreshToken', newRefreshToken);
+      if (csrfToken) await StorageService.setItem('refreshCsrf', csrfToken);
     } catch (e) {
       await logout();
     }

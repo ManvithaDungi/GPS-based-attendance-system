@@ -18,6 +18,9 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "@indazone/shared": [
+        "../../packages/shared/src"
       ]
     },
     "allowImportingTsExtensions": true,

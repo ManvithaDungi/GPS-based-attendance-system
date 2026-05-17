@@ -1,3 +1,5 @@
+export * from './types';
+
 /**
  * Shared types and enums for InDaZone application
  * Used across mobile and backend applications

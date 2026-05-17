@@ -54,7 +54,7 @@ export const Attendance = () => {
   const [data, setData] = useState<AttendanceRow[]>([]);
   const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 20, total: 0, totalPages: 1 });
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PRESENT' | 'ABSENT' | 'LATE'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PRESENT' | 'ABSENT' | 'LATE' | 'PENDING'>('ALL');
   const [punctualityFilter, setPunctualityFilter] = useState<'ALL' | 'ON_TIME' | 'LATE'>('ALL');
   const [dateFilter, setDateFilter] = useState('');
   const [loading, setLoading] = useState(true);
@@ -151,7 +151,7 @@ export const Attendance = () => {
           )}>
             <select
               value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value as 'ALL' | 'PRESENT' | 'ABSENT' | 'LATE')}
+              onChange={(event) => setStatusFilter(event.target.value as 'ALL' | 'PRESENT' | 'ABSENT' | 'LATE' | 'PENDING')}
               className={cn(
                 'bg-bg-light dark:bg-bg-dark neumorphic-inset border-none rounded-xl px-4 py-3 text-xs font-bold text-slate-500 focus:ring-0',
                 statusFilter !== 'ALL' && 'text-primary'
@@ -161,6 +161,7 @@ export const Attendance = () => {
               <option value="PRESENT">Present</option>
               <option value="ABSENT">Absent</option>
               <option value="LATE">Late</option>
+              <option value="PENDING">Pending</option>
             </select>
             <select
               value={punctualityFilter}
@@ -232,7 +233,9 @@ export const Attendance = () => {
                     <span className={cn(
                       'px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider',
                       row.status === 'Present' ? 'bg-success/10 text-success' :
-                      row.status === 'Late' ? 'bg-warning/10 text-warning' : 'bg-danger/10 text-danger'
+                      row.status === 'Late' ? 'bg-warning/10 text-warning' :
+                      row.status === 'Pending' ? 'bg-slate-100/60 text-slate-600 dark:bg-slate-800/60 dark:text-slate-300' :
+                      'bg-danger/10 text-danger'
                     )}>
                       {row.status}
                     </span>

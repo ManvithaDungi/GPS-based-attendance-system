@@ -8,6 +8,7 @@ if (!baseURL) {
 
 const api = axios.create({
   baseURL,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -17,6 +18,20 @@ api.interceptors.request.use((config) => {
   const token = localStorage.getItem('accessToken');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+  // If calling refresh/logout which rely on refresh cookie, include CSRF header (double-submit)
+  try {
+    const url = config.url || '';
+    if (url.includes('/auth/refresh') || url.includes('/auth/logout')) {
+      const getCookie = (name: string) => {
+        const match = document.cookie.match(new RegExp('(^|; )' + name + '=([^;]*)'));
+        return match ? decodeURIComponent(match[2]) : null;
+      };
+      const csrf = getCookie('refreshCsrf');
+      if (csrf) config.headers['x-csrf-token'] = csrf;
+    }
+  } catch (e) {
+    // ignore in non-browser environments
   }
   return config;
 });
@@ -30,23 +45,18 @@ api.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        const refreshToken = localStorage.getItem('refreshToken');
-        if (!refreshToken) throw new Error('Missing refresh token');
-
         const response = await axios.post(
           `${baseURL}/auth/refresh`,
-          { refreshToken },
-          { headers: { 'Content-Type': 'application/json' } }
+          {},
+          { headers: { 'Content-Type': 'application/json' }, withCredentials: true }
         );
 
         localStorage.setItem('accessToken', response.data.accessToken);
-        localStorage.setItem('refreshToken', response.data.refreshToken);
 
         originalRequest.headers.Authorization = `Bearer ${response.data.accessToken}`;
         return api(originalRequest);
       } catch {
         localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
         localStorage.removeItem('userRole');
         window.location.href = '/login';
       }

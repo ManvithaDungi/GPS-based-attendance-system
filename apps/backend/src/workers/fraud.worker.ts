@@ -29,12 +29,15 @@ export const createFraudWorker = () => {
         orderBy: { createdAt: 'desc' },
       });
 
-      if (lastLog && lastLog.checkInLat && lastLog.checkInLng) {
+      const lastLat = lastLog?.checkOutLat ?? lastLog?.checkInLat ?? null;
+      const lastLng = lastLog?.checkOutLng ?? lastLog?.checkInLng ?? null;
+
+      if (lastLog && lastLat != null && lastLng != null) {
         const lastTime = lastLog.checkOutTime || lastLog.checkInTime;
         if (lastTime) {
           const distanceKm = calculateHaversineDistance(
             latitude, longitude,
-            lastLog.checkInLat, lastLog.checkInLng
+            lastLat, lastLng
           ) / 1000;
           const hoursDiff = (new Date(timestamp).getTime() - lastTime.getTime()) / 3600000;
 

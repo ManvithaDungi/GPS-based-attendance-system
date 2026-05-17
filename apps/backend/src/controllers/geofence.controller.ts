@@ -17,6 +17,18 @@ const validateGeofenceQuerySchema = z.object({
   accuracyMeters: numericQueryParam.refine((value) => value >= 0),
 });
 
+const positiveIntegerQueryParam = z.preprocess((value) => {
+  if (Array.isArray(value)) return value[0];
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string' || value.trim() === '') return value;
+  return Number(value);
+}, z.number().int().positive().optional());
+
+const listLocationsQuerySchema = z.object({
+  page: positiveIntegerQueryParam.default(1),
+  limit: positiveIntegerQueryParam.default(50),
+});
+
 const sendError = (res: Response, statusCode: number, error: string, message: string): Response => {
   return res.status(statusCode).json({ error, message, statusCode });
 };
@@ -68,8 +80,11 @@ export const validateGeofence = async (req: Request, res: Response): Promise<Res
 
 export const getLocations = async (_req: Request, res: Response): Promise<Response> => {
   try {
-    const data = await geofenceService.getActiveLocations();
-    return res.status(200).json({ data });
+    const query = listLocationsQuerySchema.parse(_req.query);
+    const page = query.page;
+    const limit = Math.min(Math.max(query.limit, 1), 200);
+    const result = await geofenceService.getActiveLocations(page, limit);
+    return res.status(200).json(result);
   } catch (_error) {
     return res.status(500).json({ error: 'INTERNAL_ERROR' });
   }
