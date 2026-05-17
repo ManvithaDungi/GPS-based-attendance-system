@@ -55,6 +55,13 @@ npm run lint
 - Forced logout + token cleanup on refresh failure
 - Manual logout flow with confirm modal
 
+### CSRF note for cookie-based refresh
+
+- The backend supports a cookie-based refresh flow (where the server sets an HttpOnly `refreshToken` cookie). For security the server also sets a readable `refreshCsrf` cookie and requires the client to send the same value in the `x-csrf-token` header when calling `/auth/refresh` or `/auth/logout`.
+- Mobile clients that store the `refreshToken` in `StorageService` should prefer the body-based refresh flow (send `{ refreshToken }` in the request body). However, the mobile client now also stores `csrfToken` when returned in login/refresh responses and will send the `x-csrf-token` header if present so cookie-based flows are supported.
+
+Note on token storage: the mobile client persists tokens using the project's `StorageService` (AsyncStorage on most platforms). The app stores both the `accessToken` and the `refreshToken` in the client storage so it can perform refresh flows and retry failed requests.
+
 ### Home (Student)
 
 - Live geofence-aware attendance dashboard

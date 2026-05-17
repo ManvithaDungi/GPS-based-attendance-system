@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { prisma } from '../utils/prisma';
 import { getJwtSecret, getRefreshSecret } from '../utils/env';
+import { randomBytes } from 'crypto';
 
 // Schemas
 const registerSchema = z.object({
@@ -43,9 +44,14 @@ const generateTokens = (userId: string, role: string) => {
 };
 
 const REFRESH_COOKIE_NAME = 'refreshToken';
+const REFRESH_CSRF_NAME = 'refreshCsrf';
 
-const setRefreshCookie = (res: Response, refreshToken: string) => {
+const setRefreshCookie = (res: Response, refreshToken: string): string => {
   const isProd = process.env.NODE_ENV === 'production';
+  // Generate a CSRF token for double-submit cookie pattern
+  const csrf = randomBytes(16).toString('hex');
+
+  // HttpOnly refresh token cookie
   res.cookie(REFRESH_COOKIE_NAME, refreshToken, {
     httpOnly: true,
     secure: isProd,
@@ -53,6 +59,17 @@ const setRefreshCookie = (res: Response, refreshToken: string) => {
     path: '/api/v1/auth',
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
+
+  // Readable CSRF cookie (accessible from JS) for double-submit pattern.
+  // Set path to '/' so frontend JS can read it from application pages.
+  res.cookie(REFRESH_CSRF_NAME, csrf, {
+    httpOnly: false,
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
+    path: '/',
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+  return csrf;
 };
 
 const clearRefreshCookie = (res: Response) => {
@@ -63,13 +80,21 @@ const clearRefreshCookie = (res: Response) => {
     sameSite: isProd ? 'none' : 'lax',
     path: '/api/v1/auth',
   });
+  res.clearCookie(REFRESH_CSRF_NAME, {
+    httpOnly: false,
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
+    path: '/',
+  });
 };
 
-const getRefreshTokenFromRequest = (req: Request): string | null => {
+type RefreshSource = 'body' | 'cookie' | null;
+const getRefreshTokenAndSource = (req: Request): { token: string | null; source: RefreshSource } => {
   const parsed = refreshSchema.safeParse(req.body);
-  if (parsed.success && parsed.data.refreshToken) return parsed.data.refreshToken;
+  if (parsed.success && parsed.data.refreshToken) return { token: parsed.data.refreshToken, source: 'body' };
   const cookieToken = (req as Request & { cookies?: Record<string, string | undefined> }).cookies?.[REFRESH_COOKIE_NAME];
-  return cookieToken ?? null;
+  if (cookieToken) return { token: cookieToken, source: 'cookie' };
+  return { token: null, source: null };
 };
 
 export const register = async (req: Request, res: Response): Promise<Response> => {
@@ -167,11 +192,12 @@ export const login = async (req: Request, res: Response): Promise<Response> => {
       }
     });
 
-    setRefreshCookie(res, refreshToken);
+    const csrf = setRefreshCookie(res, refreshToken);
 
     return res.status(200).json({
       accessToken,
       refreshToken,
+      csrfToken: csrf,
       user: {
         id: user.id,
         name: user.name,
@@ -190,9 +216,18 @@ export const login = async (req: Request, res: Response): Promise<Response> => {
 
 export const refresh = async (req: Request, res: Response): Promise<Response> => {
   try {
-    const refreshToken = getRefreshTokenFromRequest(req);
+    const { token: refreshToken, source } = getRefreshTokenAndSource(req);
     if (!refreshToken) {
       return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'Missing refresh token' });
+    }
+
+    // If the refresh token came from the cookie, require a matching CSRF header (double-submit)
+    if (source === 'cookie') {
+      const headerCsrf = (req.headers['x-csrf-token'] as string | undefined) ?? null;
+      const cookieCsrf = (req as Request & { cookies?: Record<string, string | undefined> }).cookies?.[REFRESH_CSRF_NAME] ?? null;
+      if (!headerCsrf || headerCsrf !== cookieCsrf) {
+        return res.status(403).json({ error: 'CSRF_MISMATCH', message: 'Missing or invalid CSRF token' });
+      }
     }
 
     const session = await prisma.session.findUnique({
@@ -236,11 +271,12 @@ export const refresh = async (req: Request, res: Response): Promise<Response> =>
       }
     });
 
-    setRefreshCookie(res, newRefreshToken);
+    const csrf = setRefreshCookie(res, newRefreshToken);
 
     return res.status(200).json({
       accessToken,
-      refreshToken: newRefreshToken
+      refreshToken: newRefreshToken,
+      csrfToken: csrf
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -252,10 +288,19 @@ export const refresh = async (req: Request, res: Response): Promise<Response> =>
 
 export const logout = async (req: Request, res: Response): Promise<Response> => {
   try {
-    const refreshToken = getRefreshTokenFromRequest(req);
+    const { token: refreshToken, source } = getRefreshTokenAndSource(req);
     if (!refreshToken) {
       clearRefreshCookie(res);
       return res.status(200).json({ message: 'Logged out successfully' });
+    }
+
+    // If logout uses cookie-based refresh token, require CSRF header
+    if (source === 'cookie') {
+      const headerCsrf = (req.headers['x-csrf-token'] as string | undefined) ?? null;
+      const cookieCsrf = (req as Request & { cookies?: Record<string, string | undefined> }).cookies?.[REFRESH_CSRF_NAME] ?? null;
+      if (!headerCsrf || headerCsrf !== cookieCsrf) {
+        return res.status(403).json({ error: 'CSRF_MISMATCH', message: 'Missing or invalid CSRF token' });
+      }
     }
 
     await prisma.session.deleteMany({

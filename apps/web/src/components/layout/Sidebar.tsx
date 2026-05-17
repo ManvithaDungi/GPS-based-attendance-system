@@ -11,6 +11,7 @@ import {
   Users,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import api from '../../lib/api';
 
 const menuItems = [
   { icon: LayoutDashboard, label: 'Overview',   path: '/' },
@@ -23,21 +24,12 @@ const menuItems = [
 export const Sidebar = () => {
   const handleLogout = async () => {
     try {
-      const accessToken = localStorage.getItem('accessToken');
-      // Best-effort server logout to clear httpOnly refresh cookie + revoke session
-      await fetch(`${import.meta.env.VITE_API_URL}/auth/logout`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: Object.assign({ 'Content-Type': 'application/json' },
-          accessToken ? { Authorization: `Bearer ${accessToken}` } : {}
-        ),
-        body: JSON.stringify({}),
-      });
-    } catch {
-      // ignore
+      // Use shared axios client so interceptors attach Authorization and send cookies
+      await api.post('/auth/logout', {}, { withCredentials: true });
+    } catch (err) {
+      // ignore logout errors
     }
     localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
     localStorage.removeItem('userRole');
     window.location.href = '/login';
   };

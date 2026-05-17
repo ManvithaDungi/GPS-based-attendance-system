@@ -19,6 +19,20 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  // If calling refresh/logout which rely on refresh cookie, include CSRF header (double-submit)
+  try {
+    const url = config.url || '';
+    if (url.includes('/auth/refresh') || url.includes('/auth/logout')) {
+      const getCookie = (name: string) => {
+        const match = document.cookie.match(new RegExp('(^|; )' + name + '=([^;]*)'));
+        return match ? decodeURIComponent(match[2]) : null;
+      };
+      const csrf = getCookie('refreshCsrf');
+      if (csrf) config.headers['x-csrf-token'] = csrf;
+    }
+  } catch (e) {
+    // ignore in non-browser environments
+  }
   return config;
 });
 

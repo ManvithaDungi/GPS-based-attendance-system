@@ -130,6 +130,7 @@ Login and receive access + refresh tokens.
 {
   "accessToken": "eyJ...",
   "refreshToken": "eyJ...",
+  "csrfToken": "<optional - present when cookie mode used>",
   "user": {
     "id": "uuid",
     "name": "John Doe",
@@ -182,11 +183,18 @@ Rotate a refresh token and receive new tokens.
 
 > Refresh tokens are single-use. Each refresh invalidates the previous token and issues a new one. The `Session` record is updated with the new refresh token and a new 7-day expiry.
 
-**Response `200`:**
+**CSRF protection note (cookie-based refresh):**
+
+- The server supports two refresh modes:
+  - Cookie-based: server sets an HttpOnly `refreshToken` cookie and a readable `refreshCsrf` cookie. Browser clients should perform the double-submit pattern: read the `refreshCsrf` cookie and send it in the `x-csrf-token` header when calling `/auth/refresh` or `/auth/logout`.
+  - Body-based: non-browser clients (mobile, CLI) can send `{ "refreshToken": "..." }` in the request body. In this case the CSRF double-submit check is skipped.
+
+**Response `200` (cookie or body):**
 ```json
 {
   "accessToken": "eyJ...",
-  "refreshToken": "eyJ..."
+  "refreshToken": "eyJ...",
+  "csrfToken": "<optional - present when cookie mode used>"
 }
 ```
 
@@ -212,6 +220,10 @@ Invalidate the current session by deleting the refresh-token record.
   "refreshToken": "eyJ..."
 }
 ```
+
+**Notes:**
+- This endpoint is protected and expects a valid `Authorization: Bearer <access_token>` header when deleting a session tied to the current user. The server uses `req.user` (populated from the access token) to ensure a refresh token cannot be used to delete another user's session.
+- The refresh token may be provided either in the request body (`refreshToken`) or as an HttpOnly cookie. If the client relies on cookies, the server will read the cookie; if no refresh token is provided, the server will still clear any refresh cookie and return `200`.
 
 **Response `200`:**
 ```json

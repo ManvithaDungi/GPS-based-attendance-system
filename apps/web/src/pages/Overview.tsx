@@ -11,24 +11,14 @@ import {
 import api from '../lib/api';
 import { NeumorphicCard } from '../components/common/NeumorphicCard';
 import { cn } from '../lib/utils';
+import { DashboardStats, UserDTO } from '@indazone/shared';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type StatusFilter = 'PRESENT' | 'ABSENT' | 'LATE' | 'PENDING';
 
-type DashboardStats = {
-  totalStudents: number;
-  presentToday: number;
-  absentToday: number;
-  lateToday: number;
-  pendingToday: number;
-  totalLocations: number;
-};
-
-type Profile = {
-  name: string;
-  role: string;
-};
+// Use shared DTOs for dashboard/profile
+type Profile = Pick<UserDTO, 'name' | 'role'>;
 
 type DayDetail = {
   present: number;
