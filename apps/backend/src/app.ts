@@ -13,6 +13,7 @@ import fraudRoutes from './routes/fraud.routes';
 import supportRoutes from './routes/support.routes';
 import rateLimit from 'express-rate-limit';
 import { errorHandler } from './middleware/error.middleware';
+import { logger } from './utils/logger';
 
 const app: Express = express();
 
@@ -44,6 +45,11 @@ app.use(
 app.use(helmet());
 app.use(express.json());
 app.use(cookieParser());
+
+// Health check endpoint (Render uses this for startup detection)
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 
 // Routes
 app.use('/api/v1/auth', authRoutes);

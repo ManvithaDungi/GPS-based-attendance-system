@@ -7,6 +7,7 @@ const baseOptions: RedisOptions = {
   maxRetriesPerRequest: null, // Required for BullMQ compatibility
   enableReadyCheck: false,
   family: 0, // Enable dual-stack (IPv4 + IPv6)
+  enableOfflineQueue: true, // Queue commands during reconnects
   ...(REDIS_URL.startsWith('rediss://') ? { tls: {} } : {}),
 };
 
