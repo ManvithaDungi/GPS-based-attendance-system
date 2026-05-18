@@ -684,7 +684,7 @@ PORT=3000
 DATABASE_URL=postgresql://...
 REDIS_URL=redis://...
 JWT_SECRET=your_jwt_secret
-REFRESH_TOKEN_SECRET=your_refresh_secret
+REFRESH_SECRET=your_refresh_secret
 GOOGLE_MAPS_API_KEY=your_maps_key
 ```
 
