@@ -220,10 +220,17 @@ export const HomeScreen: React.FC = () => {
           (pos) =>
             applyPosition(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy),
           (err) => {
+            // Clear loading for all errors, not just permission denial
             if (err.code === err.PERMISSION_DENIED) {
               setLocationError('Location access denied');
-              setIsLoading(false);
+            } else if (err.code === err.POSITION_UNAVAILABLE) {
+              setLocationError('Location unavailable. Ensure GPS/network is enabled.');
+            } else if (err.code === err.TIMEOUT) {
+              setLocationError('Location request timed out. Try again.');
+            } else {
+              setLocationError('Unable to retrieve location. Try again.');
             }
+            setIsLoading(false);
           },
           watchOptions
         );

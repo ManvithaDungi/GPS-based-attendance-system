@@ -45,14 +45,18 @@ const formatStatus = (value?: string | null) => {
   return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
 };
 
-/** Calendar date in local time — matches `<input type="date">` values. */
+/** Calendar date in UTC — matches `<input type="date">` values. Extracts from ISO string to avoid timezone conversion. */
 const formatDateFilterValue = (value?: string | null) => {
   if (!value) return '';
+  // Extract YYYY-MM-DD from ISO string directly to preserve UTC date
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  if (match) return match[0];
+  // Fallback for invalid format
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return '';
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${d.getFullYear()}-${mm}-${dd}`;
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(d.getUTCDate()).padStart(2, '0');
+  return `${d.getUTCFullYear()}-${mm}-${dd}`;
 };
 
 const FILTER_BTN =
@@ -195,16 +199,28 @@ export const Attendance = () => {
   );
 
   const fetchAllForExport = async (): Promise<AttendanceRow[]> => {
-    const params: Record<string, string | number> = { page: 1, limit: 1000 };
-    if (dateFilter) {
-      params.from = dateFilter;
-      params.to = dateFilter;
-    }
-    if (statusFilter !== 'ALL') params.status = statusFilter;
+    const allRows: AttendanceRow[] = [];
+    let currentPage = 1;
+    let totalPages = 1;
 
-    const res = await api.get('/admin/attendance', { params });
-    const rows = (res.data.data ?? []).map(mapAttendanceRow);
-    return applyClientFilters(rows, search, statusFilter, punctualityFilter, dateFilter);
+    // Paginate through all matching records
+    while (currentPage <= totalPages) {
+      const params: Record<string, string | number> = { page: currentPage, limit: 100 };
+      if (dateFilter) {
+        params.from = dateFilter;
+        params.to = dateFilter;
+      }
+      if (statusFilter !== 'ALL') params.status = statusFilter;
+
+      const res = await api.get('/admin/attendance', { params });
+      const rows = (res.data.data ?? []).map(mapAttendanceRow);
+      allRows.push(...rows);
+
+      totalPages = res.data.pagination?.totalPages ?? 1;
+      currentPage++;
+    }
+
+    return applyClientFilters(allRows, search, statusFilter, punctualityFilter, dateFilter);
   };
 
   const handleExportCsv = async () => {
