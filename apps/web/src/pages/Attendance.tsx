@@ -75,6 +75,11 @@ const mapAttendanceRow = (row: any): AttendanceRow => ({
 });
 
 const escapeCsvCell = (value: string) => {
+  // Neutralize spreadsheet formula injection (=, +, -, @)
+  if (/^[=+\-@]/.test(value)) {
+    value = `'${value}`;
+  }
+  // Quote cells with special characters
   if (/[",\n\r]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
   return value;
 };
