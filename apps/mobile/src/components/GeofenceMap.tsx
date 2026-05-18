@@ -4,7 +4,11 @@ import { View, Text, StyleSheet, Platform } from 'react-native';
 declare const google: any;
 
 interface Props {
-  userLocation?: { latitude: number; longitude: number } | null;
+  userLocation?: {
+    latitude: number;
+    longitude: number;
+    heading?: number | null;
+  } | null;
   geofenceLocation?: { name: string; latitude: number; longitude: number; radiusMeters: number } | null;
   isWithinGeofence?: boolean;
   interactive?: boolean;
@@ -64,8 +68,8 @@ const WebMap = ({ userLocation, geofenceLocation, isWithinGeofence, interactive 
   const userMarkerRef = useRef<any>(null);
 
   const center = {
-    lat: geofenceLocation?.latitude ?? userLocation?.latitude ?? -6.2088,
-    lng: geofenceLocation?.longitude ?? userLocation?.longitude ?? 106.8456,
+    lat: userLocation?.latitude ?? geofenceLocation?.latitude ?? -6.2088,
+    lng: userLocation?.longitude ?? geofenceLocation?.longitude ?? 106.8456,
   };
 
   // ── Load Google Maps script once ──────────────────────────────────────────
@@ -180,19 +184,46 @@ const WebMap = ({ userLocation, geofenceLocation, isWithinGeofence, interactive 
     if (!mapInstanceRef.current || !(window as any).google?.maps || !userLocation) return;
 
     const userPos = { lat: userLocation.latitude, lng: userLocation.longitude };
+
+    // Create the SVG marker element
+    const createMarkerElement = (heading: number = 0) => {
+      const el = document.createElement('div');
+      el.style.cssText = 'position: relative; width: 40px; height: 40px;';
+
+      el.innerHTML = `
+        <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+          <!-- Direction arrow (rotates with heading) -->
+          <g transform="rotate(${heading}, 20, 20)">
+            <polygon
+              points="20,4 25,16 20,13 15,16"
+              fill="#4299E1"
+              opacity="0.85"
+            />
+          </g>
+          <!-- Main dot -->
+          <circle cx="20" cy="20" r="9" fill="#4299E1" />
+          <circle cx="20" cy="20" r="9" fill="none" stroke="white" stroke-width="2.5" />
+          <!-- Inner highlight -->
+          <circle cx="20" cy="20" r="4" fill="white" opacity="0.4" />
+        </svg>
+      `;
+      return el;
+    };
+
     if (userMarkerRef.current) {
       userMarkerRef.current.position = userPos;
+      // Update heading if you have it
+      if (userLocation.heading != null) {
+        const el = userMarkerRef.current.content;
+        const polygon = el?.querySelector('polygon')?.closest('g');
+        if (polygon) polygon.setAttribute('transform', `rotate(${userLocation.heading}, 20, 20)`);
+      }
     } else {
-      const pinElement = new (google.maps as any).marker.PinElement({
-        background: '#4299E1',
-        borderColor: '#ffffff',
-        glyphColor: '#ffffff',
-      });
       userMarkerRef.current = new (google.maps as any).marker.AdvancedMarkerElement({
         map: mapInstanceRef.current,
         position: userPos,
         title: 'You',
-        content: pinElement.element,
+        content: createMarkerElement(userLocation.heading ?? 0),
       });
     }
   };
