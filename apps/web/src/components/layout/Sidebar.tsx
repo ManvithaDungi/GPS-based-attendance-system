@@ -6,12 +6,12 @@ import {
   MapPin, 
   History, 
   LogOut, 
-  ShieldCheck,
   HelpCircle,
   Users,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import api from '../../lib/api';
+import { AppLogo } from '../common/AppLogo';
 
 const menuItems = [
   { icon: LayoutDashboard, label: 'Overview',   path: '/' },
@@ -37,9 +37,7 @@ export const Sidebar = () => {
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 bg-bg-light dark:bg-bg-dark border-r border-black/5 dark:border-white/5 py-8 flex flex-col z-50">
       <div className="px-6 mb-10 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-surface-light dark:bg-surface-dark neumorphic-raised flex items-center justify-center">
-          <ShieldCheck className="text-primary w-6 h-6" />
-        </div>
+        <AppLogo size="md" />
         <div>
           <h1 className="text-xl font-black text-primary tracking-tighter">InDaZone</h1>
           <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Admin Dashboard</p>

@@ -1,6 +1,7 @@
 import { Worker, Job } from 'bullmq';
 import { createRedisConnection } from '../utils/redis';
 import { prisma } from '../utils/prisma';
+import { toDateOnly } from '../utils/date';
 import { logger } from '../utils/logger';
 
 /**
@@ -16,8 +17,7 @@ export const createStatsWorker = () => {
       if (job.name !== 'checkout') return;
 
       const { locationId, timestamp } = job.data;
-      const date = new Date(timestamp);
-      date.setHours(0, 0, 0, 0);
+      const date = toDateOnly(new Date(timestamp));
 
       const [presentCount, absentCount, lateCount] = await Promise.all([
         prisma.attendanceLog.count({

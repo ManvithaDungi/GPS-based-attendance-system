@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShieldCheck, Mail, Lock, Loader2, User } from 'lucide-react';
+import { Mail, Lock, Loader2, User } from 'lucide-react';
 import api from '../lib/api';
 import { NeumorphicCard } from '../components/common/NeumorphicCard';
+import { AppLogo } from '../components/common/AppLogo';
 
 export const Login = () => {
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -85,9 +86,7 @@ export const Login = () => {
       <NeumorphicCard className="w-full max-w-md p-8 sm:p-12">
         {/* Header */}
         <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-surface-light dark:bg-surface-dark neumorphic-raised flex items-center justify-center mb-4">
-            <ShieldCheck className="text-primary w-10 h-10" />
-          </div>
+          <AppLogo size="lg" className="mb-4" />
           <h1 className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tighter">InDaZone</h1>
           <p className="text-slate-500 font-medium mt-1">Admin Portal</p>
         </div>

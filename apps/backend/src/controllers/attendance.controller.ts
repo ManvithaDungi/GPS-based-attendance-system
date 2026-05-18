@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
+import { parseDateOnly } from '../utils/date';
 import * as attendanceService from '../services/attendance.service';
 import { AttendanceStatus, PunctualityStatus } from '@prisma/client';
 import { emitCheckIn, emitCheckOut, emitNotification } from '../queues/emitter';
@@ -31,8 +32,11 @@ const dateQueryParam = z.preprocess((value) => {
   if (Array.isArray(value)) return value[0];
   if (value === undefined) return undefined;
   if (typeof value !== 'string' || value.trim() === '') return value;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date;
+  try {
+    return parseDateOnly(value);
+  } catch {
+    return value;
+  }
 }, z.date().optional());
 
 const historyQuerySchema = z.object({

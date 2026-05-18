@@ -13,6 +13,7 @@ import { invalidateLocationCache } from '../cache/geofence.cache';
 // check-ins as "present" without filtering by status, and omitted absentToday
 // and pendingToday entirely.
 import { getDashboardStats } from '../services/attendance.service';
+import { parseDateOnly } from '../utils/date';
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
@@ -222,12 +223,7 @@ export const getAllAttendance = async (req: Request, res: Response): Promise<Res
     const limit = Math.min(Math.max(query.limit ?? 20, 1), 100);
     const skip = (page - 1) * limit;
 
-    const normalizeDateOnly = (value: string): Date => {
-      const d = new Date(value);
-      if (Number.isNaN(d.getTime())) throw new Error('INVALID_DATE');
-      d.setHours(0, 0, 0, 0);
-      return d;
-    };
+    const normalizeDateOnly = (value: string): Date => parseDateOnly(value);
 
     const dateFilter =
       query.from || query.to

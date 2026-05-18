@@ -123,82 +123,92 @@ const WebMap = ({ userLocation, geofenceLocation, isWithinGeofence, interactive 
     updateOverlays();
   };
 
-  // ── Update geofence circle + markers when props change ───────────────────
-  const updateOverlays = () => {
-    if (!mapInstanceRef.current || !(window as any).google?.maps) return;
+  const geofenceIdRef = useRef<string | null>(null);
 
-    // Geofence circle
-    if (geofenceLocation) {
-      const fenceCenter = {
-        lat: geofenceLocation.latitude,
-        lng: geofenceLocation.longitude,
-      };
+  const updateGeofenceOverlays = () => {
+    if (!mapInstanceRef.current || !(window as any).google?.maps || !geofenceLocation) return;
 
-      if (circleRef.current) {
-        circleRef.current.setCenter(fenceCenter);
-        circleRef.current.setRadius(geofenceLocation.radiusMeters);
-        circleRef.current.setOptions({
-          strokeColor: isWithinGeofence ? '#48BB78' : '#ECC94B',
-          fillColor: isWithinGeofence ? '#48BB78' : '#ECC94B',
-        });
-      } else {
-        circleRef.current = new google.maps.Circle({
-          map: mapInstanceRef.current,
-          center: fenceCenter,
-          radius: geofenceLocation.radiusMeters,
-          strokeColor: isWithinGeofence ? '#48BB78' : '#ECC94B',
-          strokeOpacity: 0.8,
-          strokeWeight: 2,
-          fillColor: isWithinGeofence ? '#48BB78' : '#ECC94B',
-          fillOpacity: 0.12,
-        });
-      }
+    const fenceCenter = {
+      lat: geofenceLocation.latitude,
+      lng: geofenceLocation.longitude,
+    };
 
-      // Zone center marker
-      if (markerRef.current) {
-        markerRef.current.position = fenceCenter;
-      } else {
-        const pinElement = new (google.maps as any).marker.PinElement({
-          background: isWithinGeofence ? '#48BB78' : '#ECC94B',
-          borderColor: '#ffffff',
-          glyphColor: '#ffffff',
-        });
-        markerRef.current = new (google.maps as any).marker.AdvancedMarkerElement({
-          map: mapInstanceRef.current,
-          position: fenceCenter,
-          title: geofenceLocation.name,
-          content: pinElement.element,
-        });
-      }
-
-      mapInstanceRef.current.panTo(fenceCenter);
+    if (circleRef.current) {
+      circleRef.current.setCenter(fenceCenter);
+      circleRef.current.setRadius(geofenceLocation.radiusMeters);
+      circleRef.current.setOptions({
+        strokeColor: isWithinGeofence ? '#48BB78' : '#ECC94B',
+        fillColor: isWithinGeofence ? '#48BB78' : '#ECC94B',
+      });
+    } else {
+      circleRef.current = new google.maps.Circle({
+        map: mapInstanceRef.current,
+        center: fenceCenter,
+        radius: geofenceLocation.radiusMeters,
+        strokeColor: isWithinGeofence ? '#48BB78' : '#ECC94B',
+        strokeOpacity: 0.8,
+        strokeWeight: 2,
+        fillColor: isWithinGeofence ? '#48BB78' : '#ECC94B',
+        fillOpacity: 0.12,
+      });
     }
 
-    // User location marker
-    if (userLocation) {
-      const userPos = { lat: userLocation.latitude, lng: userLocation.longitude };
-      if (userMarkerRef.current) {
-        userMarkerRef.current.position = userPos;
-      } else {
-        const pinElement = new (google.maps as any).marker.PinElement({
-          background: '#4299E1',
-          borderColor: '#ffffff',
-          glyphColor: '#ffffff',
-        });
-        userMarkerRef.current = new (google.maps as any).marker.AdvancedMarkerElement({
-          map: mapInstanceRef.current,
-          position: userPos,
-          title: 'You',
-          content: pinElement.element,
-        });
-      }
+    if (markerRef.current) {
+      markerRef.current.position = fenceCenter;
+    } else {
+      const pinElement = new (google.maps as any).marker.PinElement({
+        background: isWithinGeofence ? '#48BB78' : '#ECC94B',
+        borderColor: '#ffffff',
+        glyphColor: '#ffffff',
+      });
+      markerRef.current = new (google.maps as any).marker.AdvancedMarkerElement({
+        map: mapInstanceRef.current,
+        position: fenceCenter,
+        title: geofenceLocation.name,
+        content: pinElement.element,
+      });
+    }
+
+    const fenceKey = `${geofenceLocation.latitude},${geofenceLocation.longitude}`;
+    if (geofenceIdRef.current !== fenceKey) {
+      geofenceIdRef.current = fenceKey;
+      mapInstanceRef.current.panTo(fenceCenter);
     }
   };
 
-  // ── Re-run overlays when props change ─────────────────────────────────────
+  const updateUserMarker = () => {
+    if (!mapInstanceRef.current || !(window as any).google?.maps || !userLocation) return;
+
+    const userPos = { lat: userLocation.latitude, lng: userLocation.longitude };
+    if (userMarkerRef.current) {
+      userMarkerRef.current.position = userPos;
+    } else {
+      const pinElement = new (google.maps as any).marker.PinElement({
+        background: '#4299E1',
+        borderColor: '#ffffff',
+        glyphColor: '#ffffff',
+      });
+      userMarkerRef.current = new (google.maps as any).marker.AdvancedMarkerElement({
+        map: mapInstanceRef.current,
+        position: userPos,
+        title: 'You',
+        content: pinElement.element,
+      });
+    }
+  };
+
+  const updateOverlays = () => {
+    updateGeofenceOverlays();
+    updateUserMarker();
+  };
+
   useEffect(() => {
-    updateOverlays();
-  }, [geofenceLocation, userLocation, isWithinGeofence]);
+    updateGeofenceOverlays();
+  }, [geofenceLocation, isWithinGeofence]);
+
+  useEffect(() => {
+    updateUserMarker();
+  }, [userLocation]);
 
   useEffect(() => {
     if (!mapInstanceRef.current) return;

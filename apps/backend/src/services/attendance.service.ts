@@ -1,4 +1,5 @@
 import { prisma } from '../utils/prisma';
+import { todayDateOnly } from '../utils/date';
 import { calculateHaversineDistance } from '../utils/haversine';
 import { AttendanceStatus, Prisma, PunctualityStatus } from '@prisma/client';
 import { getCachedLocation } from '../cache/geofence.cache';
@@ -48,8 +49,7 @@ export const recordCheckIn = async ({
     throw new AttendanceServiceError('OUTSIDE_GEOFENCE', distance, location.radiusMeters);
   }
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = todayDateOnly();
 
   const existingLog = await prisma.attendanceLog.findFirst({
     where: { studentId, date: today, deletedAt: null },
@@ -82,8 +82,7 @@ export const recordCheckOut = async ({
   accuracyMeters,
   timestamp,
 }: CheckOutParams) => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = todayDateOnly();
 
   const log = await prisma.attendanceLog.findFirst({
     where: { studentId, date: today, deletedAt: null },
@@ -153,8 +152,7 @@ export const recordCheckOut = async ({
 };
 
 export const getTodayAttendance = async (studentId: string) => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = todayDateOnly();
 
   return prisma.attendanceLog.findFirst({
     where: { studentId, date: today, deletedAt: null },
@@ -239,8 +237,7 @@ export const getStudentAttendanceSummary = async (studentId: string) => {
 };
 
 export const getDashboardStats = async () => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = todayDateOnly();
 
   const [
     totalStudents,
