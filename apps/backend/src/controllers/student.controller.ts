@@ -1,12 +1,12 @@
 import { Request, Response } from 'express';
 import { prisma } from '../utils/prisma';
+import { todayDateOnly } from '../utils/date';
 import { logger } from '../utils/logger';
 
 export const getDashboard = async (req: Request, res: Response) => {
   try {
     const studentId = req.user!.id;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = todayDateOnly();
 
     // Get today's attendance
     const todayAttendance = await prisma.attendanceLog.findFirst({

@@ -1,11 +1,86 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { toDateOnly } from '../src/utils/date';
 //command to run this file : npx ts-node prisma/seed.ts
 const prisma = new PrismaClient();
 
 function randomBetween(min: number, max: number) {
   return Math.random() * (max - min) + min;
 }
+
+type SeedStudent = { id: string; deviceId: string | null };
+type SeedLocation = { id: string; radiusMeters: number };
+
+const FRAUD_SEED_TEMPLATES: Array<{
+  type: string;
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+  buildDetails: (student: SeedStudent, loc: SeedLocation) => Prisma.InputJsonValue;
+}> = [
+  {
+    type: 'VELOCITY_ANOMALY',
+    riskLevel: 'HIGH',
+    buildDetails: () => {
+      const velocityKmh = randomBetween(210, 480);
+      return {
+        factors: [`Impossible velocity: ${velocityKmh.toFixed(1)} km/h`],
+        velocityKmh,
+      };
+    },
+  },
+  {
+    type: 'DEVICE_MISMATCH',
+    riskLevel: 'MEDIUM',
+    buildDetails: (student) => ({
+      factors: [
+        `Device mismatch: user=${student.deviceId}, session=session_alt_${student.id.slice(0, 8)}`,
+      ],
+      registeredDeviceId: student.deviceId,
+      sessionDeviceId: `session_alt_${student.id.slice(0, 8)}`,
+    }),
+  },
+  {
+    type: 'BOUNDARY_PROXIMITY',
+    riskLevel: 'MEDIUM',
+    buildDetails: (_student, loc) => {
+      const distanceM = randomBetween(loc.radiusMeters * 0.82, loc.radiusMeters * 0.98);
+      return {
+        factors: [`Near boundary: ${distanceM.toFixed(1)}m / ${loc.radiusMeters}m`],
+        distanceM,
+        radiusMeters: loc.radiusMeters,
+      };
+    },
+  },
+  {
+    type: 'DISTANCE_ANOMALY',
+    riskLevel: 'HIGH',
+    buildDetails: (_student, loc) => {
+      const distanceM = randomBetween(loc.radiusMeters + 20, loc.radiusMeters + 350);
+      return {
+        factors: ['Distance from geofence centre exceeds allowed radius'],
+        distanceM,
+        allowedRadiusM: loc.radiusMeters,
+      };
+    },
+  },
+  {
+    type: 'LOW_GPS_ACCURACY',
+    riskLevel: 'LOW',
+    buildDetails: () => ({
+      factors: ['Device GPS accuracy is too low; location is untrustworthy'],
+      accuracyMeters: randomBetween(105, 280),
+      thresholdMeters: 100,
+    }),
+  },
+  {
+    type: 'OUTSIDE_GEOFENCE',
+    riskLevel: 'HIGH',
+    buildDetails: (_student, loc) => ({
+      factors: ['Check-in attempted outside geofence'],
+      distanceM: randomBetween(loc.radiusMeters + 50, loc.radiusMeters + 400),
+      allowedRadiusM: loc.radiusMeters,
+    }),
+  },
+];
 
 async function main() {
   console.log('🧹 Clearing database...');
@@ -92,16 +167,15 @@ async function main() {
   // ─── GENERATE LAST 30 WEEKDAYS ───
   const weekDays: Date[] = [];
   const cursor = new Date();
-  cursor.setHours(0, 0, 0, 0);
 
   while (weekDays.length < 30) {
     const day = cursor.getDay(); // 0 = Sun, 6 = Sat
     if (day !== 0 && day !== 6) {
-      weekDays.push(new Date(cursor));
+      weekDays.push(toDateOnly(cursor));
     }
     cursor.setDate(cursor.getDate() - 1);
   }
-  weekDays.reverse(); // chronological: oldest → today
+  weekDays.reverse(); // chronological: oldest → today (today is included when the loop starts from today)
 
   console.log(`📅 Generating attendance for ${weekDays.length} weekdays...`);
 
@@ -189,18 +263,6 @@ async function main() {
       },
     });
 
-    // ─── FRAUD (random ~20%) ───
-    if (Math.random() < 0.2) {
-      await prisma.fraudLog.create({
-        data: {
-          studentId: student.id,
-          type: 'DISTANCE_ANOMALY',
-          riskLevel: 'MEDIUM',
-          details: { distance: randomBetween(200, 500) },
-        },
-      });
-    }
-
     // ─── NOTIFICATIONS ───
     await prisma.notification.create({
       data: {
@@ -224,6 +286,42 @@ async function main() {
 
     console.log(`  ✔ Seeded student ${student.studentCode}`);
   }
+
+  // ─── FRAUD LOGS (all risk types) ───
+  let fraudCount = 0;
+
+  for (let t = 0; t < FRAUD_SEED_TEMPLATES.length; t++) {
+    const template = FRAUD_SEED_TEMPLATES[t];
+    const student = students[t % students.length];
+    const loc = locations[t % locations.length];
+    await prisma.fraudLog.create({
+      data: {
+        studentId: student.id,
+        type: template.type,
+        riskLevel: template.riskLevel,
+        details: template.buildDetails(student, loc),
+      },
+    });
+    fraudCount++;
+  }
+
+  for (const student of students) {
+    if (Math.random() >= 0.3) continue;
+    const template =
+      FRAUD_SEED_TEMPLATES[Math.floor(Math.random() * FRAUD_SEED_TEMPLATES.length)];
+    const loc = locations[Math.floor(Math.random() * locations.length)];
+    await prisma.fraudLog.create({
+      data: {
+        studentId: student.id,
+        type: template.type,
+        riskLevel: template.riskLevel,
+        details: template.buildDetails(student, loc),
+      },
+    });
+    fraudCount++;
+  }
+
+  console.log(`🔒 Seeded ${fraudCount} fraud logs across ${FRAUD_SEED_TEMPLATES.length} risk types\n`);
 
   // ─── DAILY STATS (one per location per weekday) ───
   for (const day of weekDays) {

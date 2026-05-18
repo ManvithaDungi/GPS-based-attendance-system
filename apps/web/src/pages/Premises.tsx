@@ -5,7 +5,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Map as MapIcon, MapPin, Navigation, RefreshCw, Plus, Pencil, X, Check, Trash2 } from 'lucide-react';
-import { Circle, MapContainer, Marker, Popup, TileLayer } from 'react-leaflet';
+import { Circle, MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import api from '../lib/api';
@@ -43,6 +43,87 @@ type PremiseFormData = {
 
 const EMPTY_FORM: PremiseFormData = { name: '', latitude: '', longitude: '', radiusMeters: '' };
 
+const DEFAULT_CENTER = { lat: 17.7324, lng: 83.3213 };
+
+// ─── Map location picker (add / edit modal) ───────────────────────────────────
+
+const MapRecenter: React.FC<{ center: [number, number] }> = ({ center }) => {
+  const map = useMap();
+  useEffect(() => {
+    map.setView(center, map.getZoom());
+  }, [center, map]);
+  return null;
+};
+
+const DraggableLocationMarker: React.FC<{
+  position: [number, number];
+  onChange: (lat: number, lng: number) => void;
+}> = ({ position, onChange }) => {
+  useMapEvents({
+    click(e) {
+      onChange(e.latlng.lat, e.latlng.lng);
+    },
+  });
+
+  return (
+    <Marker
+      position={position}
+      draggable
+      eventHandlers={{
+        dragend(e) {
+          const { lat, lng } = e.target.getLatLng();
+          onChange(lat, lng);
+        },
+      }}
+    />
+  );
+};
+
+const PremiseLocationPicker: React.FC<{
+  latitude: string;
+  longitude: string;
+  radiusMeters: string;
+  onChange: (lat: number, lng: number) => void;
+}> = ({ latitude, longitude, radiusMeters, onChange }) => {
+  const lat = Number(latitude);
+  const lng = Number(longitude);
+  const position: [number, number] =
+    !isNaN(lat) && !isNaN(lng) ? [lat, lng] : [DEFAULT_CENTER.lat, DEFAULT_CENTER.lng];
+  const radius = Number(radiusMeters);
+
+  const handleChange = (newLat: number, newLng: number) => {
+    onChange(newLat, newLng);
+  };
+
+  return (
+    <div>
+      <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">
+        Pick location on map
+      </label>
+      <div className="h-52 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700">
+        <MapContainer center={position} zoom={18} className="w-full h-full" scrollWheelZoom>
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          <MapRecenter center={position} />
+          <DraggableLocationMarker position={position} onChange={handleChange} />
+          {!isNaN(radius) && radius > 0 && (
+            <Circle
+              center={position}
+              radius={radius}
+              pathOptions={{ color: '#4F8EF7', fillColor: '#4F8EF7', fillOpacity: 0.12 }}
+            />
+          )}
+        </MapContainer>
+      </div>
+      <p className="text-xs text-slate-500 mt-2">
+        Drag the marker or click the map — latitude and longitude update automatically.
+      </p>
+    </div>
+  );
+};
+
 // ─── Modal ────────────────────────────────────────────────────────────────────
 
 const Modal: React.FC<{
@@ -54,14 +135,15 @@ const Modal: React.FC<{
   submitLabel: string;
   form: PremiseFormData;
   onChange: (field: keyof PremiseFormData, value: string) => void;
+  onLocationChange: (lat: number, lng: number) => void;
   error: string;
-}> = ({ title, onClose, onSubmit, onDelete, submitting, submitLabel, form, onChange, error }) => (
+}> = ({ title, onClose, onSubmit, onDelete, submitting, submitLabel, form, onChange, onLocationChange, error }) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center">
     {/* Backdrop */}
     <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
     {/* Modal card */}
-    <div className="relative z-10 w-full max-w-md mx-4">
+    <div className="relative z-10 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
       <NeumorphicCard className="p-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
@@ -103,6 +185,13 @@ const Modal: React.FC<{
               className="w-full px-4 py-3 rounded-xl bg-bg-light dark:bg-bg-dark border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 font-medium text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 neumorphic-inset"
             />
           </div>
+
+          <PremiseLocationPicker
+            latitude={form.latitude}
+            longitude={form.longitude}
+            radiusMeters={form.radiusMeters}
+            onChange={onLocationChange}
+          />
 
           {/* Lat / Lng row */}
           <div className="grid grid-cols-2 gap-4">
@@ -228,6 +317,21 @@ export const Premises = () => {
     setFormError('');
   };
 
+  const handleLocationChange = (lat: number, lng: number) => {
+    setForm(f => ({
+      ...f,
+      latitude: lat.toFixed(6),
+      longitude: lng.toFixed(6),
+    }));
+    setFormError('');
+  };
+
+  const getDefaultLocation = () => {
+    if (selectedPremise) return { lat: selectedPremise.lat, lng: selectedPremise.lng };
+    if (premises[0]) return { lat: premises[0].lat, lng: premises[0].lng };
+    return DEFAULT_CENTER;
+  };
+
   const validate = () => {
     if (!form.name.trim()) return 'Name is required.';
     if (!form.latitude || isNaN(Number(form.latitude))) return 'Valid latitude is required.';
@@ -254,7 +358,13 @@ export const Premises = () => {
   // ── Open Add ───────────────────────────────────────────────────────────────
 
   const openAdd = () => {
-    setForm(EMPTY_FORM);
+    const { lat, lng } = getDefaultLocation();
+    setForm({
+      ...EMPTY_FORM,
+      latitude: lat.toFixed(6),
+      longitude: lng.toFixed(6),
+      radiusMeters: '100',
+    });
     setFormError('');
     setShowAdd(true);
   };
@@ -347,6 +457,7 @@ export const Premises = () => {
           submitLabel="Add Premise"
           form={form}
           onChange={handleChange}
+          onLocationChange={handleLocationChange}
           error={formError}
         />
       )}
@@ -362,6 +473,7 @@ export const Premises = () => {
           submitLabel="Save Changes"
           form={form}
           onChange={handleChange}
+          onLocationChange={handleLocationChange}
           error={formError}
         />
       )}

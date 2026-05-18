@@ -102,8 +102,19 @@ export const Logs = () => {
   };
 
   const getFraudIcon = (type: string) => {
-    if (type.toLowerCase().includes('location')) return <Navigation className="w-4 h-4" />;
-    if (type.toLowerCase().includes('device')) return <Cpu className="w-4 h-4" />;
+    const t = type.toLowerCase();
+    if (t.includes('device')) return <Cpu className="w-4 h-4" />;
+    if (t.includes('velocity') || t.includes('gps') || t.includes('accuracy')) {
+      return <AlertTriangle className="w-4 h-4" />;
+    }
+    if (
+      t.includes('location') ||
+      t.includes('boundary') ||
+      t.includes('distance') ||
+      t.includes('geofence')
+    ) {
+      return <Navigation className="w-4 h-4" />;
+    }
     return <Fingerprint className="w-4 h-4" />;
   };
 

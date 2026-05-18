@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Search, RefreshCw } from 'lucide-react';
+import { Search, RefreshCw, FileDown, Printer } from 'lucide-react';
 import api from '../lib/api';
 import { NeumorphicCard } from '../components/common/NeumorphicCard';
 import { cn } from '../lib/utils';
@@ -45,9 +45,102 @@ const formatStatus = (value?: string | null) => {
   return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
 };
 
-const formatDateFilterValue = (isoString?: string | null) => {
-  if (!isoString) return '';
-  return new Date(isoString).toISOString().slice(0, 10);
+/** Calendar date in local time — matches `<input type="date">` values. */
+const formatDateFilterValue = (value?: string | null) => {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
+};
+
+const FILTER_BTN =
+  'px-4 py-3 rounded-xl text-xs font-black text-slate-500 hover:text-primary hover:neumorphic-raised disabled:opacity-40 disabled:hover:shadow-none disabled:hover:text-slate-500 transition-all flex items-center justify-center gap-2 shrink-0';
+
+const mapAttendanceRow = (row: any): AttendanceRow => ({
+  id: row.id,
+  name: row.student?.name || 'Unknown',
+  rollNo: row.student?.studentCode || 'N/A',
+  status: formatStatus(row.status),
+  punctuality: row.punctuality === 'ON_TIME' ? 'On Time' : row.punctuality === 'LATE' ? 'Late' : '-',
+  checkIn: formatTime(row.checkInTime),
+  checkInDate: formatDateFilterValue(row.date ?? row.checkInTime),
+  checkOut: formatTime(row.checkOutTime),
+  duration: formatDuration(row.durationHours),
+});
+
+const escapeCsvCell = (value: string) => {
+  if (/[",\n\r]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
+  return value;
+};
+
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+
+const printHtmlDocument = (html: string) => {
+  const iframe = document.createElement('iframe');
+  iframe.setAttribute('title', 'Attendance print');
+  Object.assign(iframe.style, {
+    position: 'fixed',
+    width: '0',
+    height: '0',
+    border: 'none',
+    left: '-9999px',
+    top: '0',
+  });
+  document.body.appendChild(iframe);
+
+  const win = iframe.contentWindow;
+  const doc = win?.document;
+  if (!doc || !win) {
+    document.body.removeChild(iframe);
+    return;
+  }
+
+  doc.open();
+  doc.write(html);
+  doc.close();
+
+  const runPrint = () => {
+    win.focus();
+    win.print();
+    setTimeout(() => {
+      if (iframe.parentNode) document.body.removeChild(iframe);
+    }, 500);
+  };
+
+  // Allow layout to finish before opening the print dialog.
+  if (doc.readyState === 'complete') {
+    setTimeout(runPrint, 150);
+  } else {
+    iframe.onload = () => setTimeout(runPrint, 150);
+  }
+};
+
+const applyClientFilters = (
+  rows: AttendanceRow[],
+  search: string,
+  statusFilter: string,
+  punctualityFilter: string,
+  dateFilter: string,
+) => {
+  const query = search.trim().toLowerCase();
+  return rows.filter((row) => {
+    const matchesSearch = !query ||
+      row.name.toLowerCase().includes(query) ||
+      row.rollNo.toLowerCase().includes(query);
+    const matchesStatus = statusFilter === 'ALL' ||
+      row.status.toUpperCase() === statusFilter;
+    const matchesPunctuality = punctualityFilter === 'ALL' ||
+      row.punctuality.toUpperCase().replace(' ', '_') === punctualityFilter;
+    const matchesDate = !dateFilter || row.checkInDate === dateFilter;
+    return matchesSearch && matchesStatus && matchesPunctuality && matchesDate;
+  });
 };
 
 export const Attendance = () => {
@@ -58,6 +151,7 @@ export const Attendance = () => {
   const [punctualityFilter, setPunctualityFilter] = useState<'ALL' | 'ON_TIME' | 'LATE'>('ALL');
   const [dateFilter, setDateFilter] = useState('');
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -66,21 +160,17 @@ export const Attendance = () => {
       setError('');
 
       try {
-        const res = await api.get('/admin/attendance', {
-          params: { page: pagination.page, limit: pagination.limit },
-        });
-        const mappedData = (res.data.data ?? []).map((row: any) => ({
-          id: row.id,
-          name: row.student?.name || 'Unknown',
-          rollNo: row.student?.studentCode || 'N/A',
-          status: formatStatus(row.status),
-          punctuality: row.punctuality === 'ON_TIME' ? 'On Time' : row.punctuality === 'LATE' ? 'Late' : '-',
-          checkIn: formatTime(row.checkInTime),
-          // Use the record's `date` (always present) so PENDING/ABSENT logs can be filtered by date.
-          checkInDate: formatDateFilterValue(row.date ?? row.checkInTime),
-          checkOut: formatTime(row.checkOutTime),
-          duration: formatDuration(row.durationHours),
-        }));
+        const params: Record<string, string | number> = {
+          page: pagination.page,
+          limit: pagination.limit,
+        };
+        if (dateFilter) {
+          params.from = dateFilter;
+          params.to = dateFilter;
+        }
+
+        const res = await api.get('/admin/attendance', { params });
+        const mappedData = (res.data.data ?? []).map(mapAttendanceRow);
         setData(mappedData);
         setPagination((current) => ({
           page: res.data.pagination?.page ?? current.page,
@@ -97,24 +187,125 @@ export const Attendance = () => {
     };
 
     fetchData();
-  }, [pagination.page, pagination.limit]);
+  }, [pagination.page, pagination.limit, dateFilter]);
 
-  const filteredData = useMemo(() => {
-    const query = search.trim().toLowerCase();
+  const filteredData = useMemo(
+    () => applyClientFilters(data, search, statusFilter, punctualityFilter, dateFilter),
+    [data, dateFilter, punctualityFilter, search, statusFilter],
+  );
 
-    return data.filter((row) => {
-      const matchesSearch = !query ||
-        row.name.toLowerCase().includes(query) ||
-        row.rollNo.toLowerCase().includes(query);
-      const matchesStatus = statusFilter === 'ALL' ||
-        row.status.toUpperCase() === statusFilter;
-      const matchesPunctuality = punctualityFilter === 'ALL' ||
-        row.punctuality.toUpperCase().replace(' ', '_') === punctualityFilter;
-      const matchesDate = !dateFilter || row.checkInDate === dateFilter;
+  const fetchAllForExport = async (): Promise<AttendanceRow[]> => {
+    const params: Record<string, string | number> = { page: 1, limit: 1000 };
+    if (dateFilter) {
+      params.from = dateFilter;
+      params.to = dateFilter;
+    }
+    if (statusFilter !== 'ALL') params.status = statusFilter;
 
-      return matchesSearch && matchesStatus && matchesPunctuality && matchesDate;
-    });
-  }, [data, dateFilter, punctualityFilter, search, statusFilter]);
+    const res = await api.get('/admin/attendance', { params });
+    const rows = (res.data.data ?? []).map(mapAttendanceRow);
+    return applyClientFilters(rows, search, statusFilter, punctualityFilter, dateFilter);
+  };
+
+  const handleExportCsv = async () => {
+    setExporting(true);
+    try {
+      const rows = await fetchAllForExport();
+      if (rows.length === 0) return;
+
+      const headers = ['Student Name', 'Roll No', 'Date', 'Status', 'Punctuality', 'Check-in', 'Check-out', 'Duration'];
+      const lines = [
+        headers.map(escapeCsvCell).join(','),
+        ...rows.map((row) =>
+          [row.name, row.rollNo, row.checkInDate, row.status, row.punctuality, row.checkIn, row.checkOut, row.duration]
+            .map(escapeCsvCell)
+            .join(','),
+        ),
+      ];
+
+      const blob = new Blob([`\uFEFF${lines.join('\r\n')}`], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const suffix = dateFilter || 'all-dates';
+      link.href = url;
+      link.download = `attendance-${suffix}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('CSV export failed', err);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handlePrint = async () => {
+    setExporting(true);
+    try {
+      const rows = await fetchAllForExport();
+      if (rows.length === 0) return;
+
+      const title = dateFilter
+        ? `Attendance Logs — ${dateFilter}`
+        : 'Attendance Logs';
+
+      const tableRows = rows.map((row) => `
+        <tr>
+          <td>${escapeHtml(row.name)}</td>
+          <td>${escapeHtml(row.rollNo)}</td>
+          <td>${escapeHtml(row.checkInDate)}</td>
+          <td>${escapeHtml(row.status)}</td>
+          <td>${escapeHtml(row.punctuality)}</td>
+          <td>${escapeHtml(row.checkIn)}</td>
+          <td>${escapeHtml(row.checkOut)}</td>
+          <td>${escapeHtml(row.duration)}</td>
+        </tr>
+      `).join('');
+
+      const generatedAt = escapeHtml(new Date().toLocaleString('en-IN'));
+
+      printHtmlDocument(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>${escapeHtml(title)}</title>
+            <style>
+              @page { margin: 16mm; }
+              body { font-family: system-ui, sans-serif; padding: 24px; color: #1e293b; }
+              h1 { font-size: 18px; margin: 0 0 4px; }
+              p { font-size: 12px; color: #64748b; margin: 0 0 20px; }
+              table { width: 100%; border-collapse: collapse; font-size: 12px; }
+              th, td { border: 1px solid #e2e8f0; padding: 8px 10px; text-align: left; }
+              th { background: #f8fafc; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+              tr:nth-child(even) { background: #f8fafc; }
+            </style>
+          </head>
+          <body>
+            <h1>${escapeHtml(title)}</h1>
+            <p>${rows.length} record(s) · Generated ${generatedAt}</p>
+            <table>
+              <thead>
+                <tr>
+                  <th>Student Name</th>
+                  <th>Roll No</th>
+                  <th>Date</th>
+                  <th>Status</th>
+                  <th>Punctuality</th>
+                  <th>Check-in</th>
+                  <th>Check-out</th>
+                  <th>Duration</th>
+                </tr>
+              </thead>
+              <tbody>${tableRows}</tbody>
+            </table>
+          </body>
+        </html>
+      `);
+    } catch (err) {
+      console.error('Print failed', err);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const firstItem = pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1;
   const lastItem = Math.min(pagination.page * pagination.limit, pagination.total);
@@ -178,7 +369,10 @@ export const Attendance = () => {
             <input
               type="date"
               value={dateFilter}
-              onChange={(event) => setDateFilter(event.target.value)}
+              onChange={(event) => {
+                setDateFilter(event.target.value);
+                setPagination((current) => ({ ...current, page: 1 }));
+              }}
               className={cn(
                 'bg-bg-light dark:bg-bg-dark neumorphic-inset border-none rounded-xl px-4 py-3 text-xs font-bold text-slate-500 focus:ring-0',
                 dateFilter && 'text-primary'
@@ -186,9 +380,27 @@ export const Attendance = () => {
             />
             <button
               type="button"
+              onClick={handleExportCsv}
+              disabled={loading || exporting || pagination.total === 0}
+              className={FILTER_BTN}
+            >
+              <FileDown className="w-3.5 h-3.5" />
+              Export CSV
+            </button>
+            <button
+              type="button"
+              onClick={handlePrint}
+              disabled={loading || exporting || pagination.total === 0}
+              className={FILTER_BTN}
+            >
+              <Printer className="w-3.5 h-3.5" />
+              Print
+            </button>
+            <button
+              type="button"
               onClick={resetFilters}
               disabled={!hasActiveFilters}
-              className="px-4 py-3 rounded-xl text-xs font-black text-slate-500 hover:text-primary hover:neumorphic-raised disabled:opacity-40 disabled:hover:shadow-none disabled:hover:text-slate-500 transition-all"
+              className={FILTER_BTN}
             >
               Reset
             </button>

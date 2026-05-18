@@ -9,7 +9,8 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
-  Platform
+  Platform,
+  Image
 } from 'react-native';
 import * as Application from 'expo-application';
 import * as Device from 'expo-device';
@@ -77,7 +78,11 @@ export const LoginScreen: React.FC = () => {
         {/* HEADER */}
         <View style={styles.header}>
           <NeumorphicCard style={styles.logoContainer}>
-            <Icon name="fingerprint" size={rs(48)} color={themeColors.primary} />
+            <Image
+              source={require('../../../assets/logo.png')}
+              style={{ width: rs(96), height: rs(96), borderRadius: rs(24) }}
+              resizeMode="contain"
+            />
           </NeumorphicCard>
           <Text style={[styles.title, { color: themeColors.text }]}>InDaZone</Text>
           <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>

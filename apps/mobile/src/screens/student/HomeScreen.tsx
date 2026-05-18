@@ -124,7 +124,7 @@ export const HomeScreen: React.FC = () => {
   const [mapInteractive, setMapInteractive] = useState(false);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const locationRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const stopLocationWatchRef = useRef<(() => void) | null>(null);
 
   // ── Timer for active check-in ──────────────────────────────────────────────
   useEffect(() => {
@@ -192,45 +192,76 @@ export const HomeScreen: React.FC = () => {
 
   useEffect(() => { fetchToday(); }, []);
 
-  // ── Get user's GPS location ───────────────────────────────────────────────
+  // ── Live GPS tracking (watchPosition on web, watchPositionAsync on native) ──
   useEffect(() => {
+    const applyPosition = (latitude: number, longitude: number, accuracy: number | null) => {
+      setUserLocation({ latitude, longitude, accuracy });
+      setLocationError(null);
+      setIsLoading(false);
+    };
+
     const startTracking = async () => {
+      stopLocationWatchRef.current?.();
+
       if (Platform.OS === 'web') {
         if (!navigator.geolocation) {
           setLocationError('Geolocation not supported');
           setIsLoading(false);
           return;
         }
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            setUserLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracy: pos.coords.accuracy });
-            setLocationError(null);
-            setIsLoading(false);
+
+        const watchOptions: PositionOptions = {
+          enableHighAccuracy: true,
+          maximumAge: 1000,
+          timeout: 15000,
+        };
+
+        const watchId = navigator.geolocation.watchPosition(
+          (pos) =>
+            applyPosition(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy),
+          (err) => {
+            if (err.code === err.PERMISSION_DENIED) {
+              setLocationError('Location access denied');
+              setIsLoading(false);
+            }
           },
-          () => { setLocationError('Location access denied'); setIsLoading(false); },
-          { enableHighAccuracy: true, timeout: 10000 }
+          watchOptions
         );
-        locationRef.current = setInterval(() => {
-          navigator.geolocation.getCurrentPosition(
-            (pos) => setUserLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracy: pos.coords.accuracy }),
-            () => { }
-          );
-        }, 10000);
-      } else {
-        const ExpoLocation = await import('expo-location');
-        const { status } = await ExpoLocation.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          setLocationError('Location permission denied');
-          setIsLoading(false);
-          return;
-        }
-        const pos = await ExpoLocation.getCurrentPositionAsync({ accuracy: ExpoLocation.Accuracy.High });
-        setUserLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracy: pos.coords.accuracy });
-        setIsLoading(false);
+
+        stopLocationWatchRef.current = () => navigator.geolocation.clearWatch(watchId);
+        return;
       }
+
+      const ExpoLocation = await import('expo-location');
+      const { status } = await ExpoLocation.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setLocationError('Location permission denied');
+        setIsLoading(false);
+        return;
+      }
+
+      const subscription = await ExpoLocation.watchPositionAsync(
+        {
+          accuracy: ExpoLocation.Accuracy.High,
+          timeInterval: 2000,
+          distanceInterval: 3,
+        },
+        (pos) =>
+          applyPosition(
+            pos.coords.latitude,
+            pos.coords.longitude,
+            pos.coords.accuracy ?? null
+          )
+      );
+
+      stopLocationWatchRef.current = () => subscription.remove();
     };
+
     startTracking();
-    return () => { if (locationRef.current) clearInterval(locationRef.current); };
+    return () => {
+      stopLocationWatchRef.current?.();
+      stopLocationWatchRef.current = null;
+    };
   }, []);
 
   // ── Compute geofence distance ─────────────────────────────────────────────

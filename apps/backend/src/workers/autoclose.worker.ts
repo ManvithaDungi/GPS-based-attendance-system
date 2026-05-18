@@ -1,6 +1,7 @@
 import { Worker } from 'bullmq';
 import { createRedisConnection } from '../utils/redis';
 import { prisma } from '../utils/prisma';
+import { todayDateOnly } from '../utils/date';
 import { emitNotification } from '../queues/emitter';
 import { getScheduledJobsQueue } from '../queues/index';
 import { logger } from '../utils/logger';
@@ -15,8 +16,7 @@ export const createAutoCloseWorker = () => {
   const worker = new Worker(
     'scheduled-jobs',
     async () => {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const today = todayDateOnly();
 
       const pendingLogs = await prisma.attendanceLog.findMany({
         where: {
