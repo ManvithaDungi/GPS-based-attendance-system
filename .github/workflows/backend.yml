@@ -29,6 +29,7 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
+      DIRECT_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
 
     steps:
       - name: Checkout repository
@@ -91,6 +92,7 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/gps_attendance_test
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/gps_attendance_test
       REDIS_URL: redis://localhost:6379
       JWT_SECRET: ci-test-jwt-secret
       REFRESH_SECRET: ci-test-refresh-secret
@@ -131,6 +133,8 @@ jobs:
         working-directory: ${{ env.WORKING_DIR }}
 
     env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
       REDIS_URL: ${{ secrets.REDIS_URL }}
 
     steps:
@@ -174,6 +178,8 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
     env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
       REDIS_URL: ${{ secrets.REDIS_URL }}
 
     steps:
