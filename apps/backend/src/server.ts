@@ -16,7 +16,7 @@ process.on('unhandledRejection', (reason, promise) => {
   logger.error({ reason, promise }, 'UNHANDLED REJECTION');
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = parseInt(process.env.PORT || '3000', 10);
 const prisma = new PrismaClient();
 
 const server = app.listen(PORT, '0.0.0.0', async () => {
